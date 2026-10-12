@@ -50,7 +50,7 @@ The homebuyer page also supports **Years before purchase**, from 0 to 30 years i
 
 Valid edits recalculate immediately; invalid inputs show field errors and withhold dependent results. Each page keeps its inputs in memory and resets to examples on reload or navigation to another page. No inputs are uploaded or persisted. These tools do not calculate recurring ownership costs, tax benefits, a developer price floor, or detailed rent-versus-buy wealth outcomes. The existing US calculator and its USD reports and exports remain available at `/`.
 
-`public/_redirects` includes SPA rewrites for `/india` and `/india/*` on Cloudflare Pages. Other static hosts must serve `index.html` for these paths so direct links and refresh work. No hosting account connection or deployment is part of this change.
+Cloudflare Workers uses the SPA fallback configured in `wrangler.jsonc`; Cloudflare Pages uses its default SPA fallback because this app has no top-level `404.html`. No `_redirects` file is needed. Other static hosts must serve `index.html` for these paths so direct links and refresh work.
 
 ## US calculator features
 
@@ -73,11 +73,37 @@ The renter breakdown separates invested down payment, avoided closing costs, gai
 
 Downloads use the last successfully calculated inputs. If you edit an input, calculate again to refresh the report and downloads. Export generation happens entirely in the browser; no financial inputs are uploaded. JSON is intended for investigation and reproduction, not an import feature.
 
-## Free hosting: Cloudflare Pages + GitHub
+## Cloudflare Workers + GitHub
+
+For an existing Worker deployment, keep the Worker named `mortgage-vs-rent-break-even-calculator` and configure its Git build with:
+
+| Setting | Value |
+|---|---|
+| Production branch | `main` |
+| Root directory | Repository root |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler@4.149.0 deploy --config wrangler.jsonc` |
+| Environment variable | `NODE_VERSION=24.14.1` |
+
+The root `wrangler.jsonc` serves the built `dist` directory as static assets and sets `assets.not_found_handling` to `single-page-application`. This returns the application HTML for navigation to `/india`, `/india/market`, and `/india/builders`, preserving the requested URL. No Worker script or backend is required. Do not add `/india/* /index.html 200` to `_redirects`: use the native SPA fallback instead, avoiding HTML canonicalization redirect loops.
+
+To verify the Worker configuration locally without publishing:
+
+```sh
+npm run build
+npx wrangler@4.149.0 deploy --config wrangler.jsonc --dry-run
+npx wrangler@4.149.0 dev --config wrangler.jsonc --local
+```
+
+Open each calculator route directly in a browser, refresh it, and check that CSS and JavaScript load. Publishing is a separate step: pushing a fix to the production branch triggers the connected Cloudflare build. Retrying a failed build before the fix is pushed will deploy the old code again.
+
+Official references: [Workers SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/), [Workers static assets](https://developers.cloudflare.com/workers/static-assets/).
+
+## Cloudflare Pages + GitHub
 
 This calculator is a static React/Vite application. Cloudflare Pages can host its built assets on the free tier, with a `pages.dev` address and HTTPS. No server or database is required. Account connection and publishing are separate from this local implementation.
 
-1. Sign in to Cloudflare and open **Workers & Pages**. Create a **Pages** application with Git integration, rather than a Worker deployment or a Direct Upload project.
+1. Sign in to Cloudflare and open **Workers & Pages**. Create a **Pages** application with Git integration if you want Pages hosting instead of the Worker setup above.
 2. Authorize Cloudflare's GitHub integration for `DevYogendra/Mortgage-vs-Rent-Break-Even-Calculator` and select that repository.
 3. Configure the build:
 
