@@ -24,7 +24,35 @@ npm run build
 
 Tests cover amortization against independent values, effective returns, contribution timing, annual growth, cash purchases, extra principal, PMI cancellation, partial-year summaries, negative thresholds, zero-price cases, and wealth reconciliation. Browser checks cover recalculation, validation, unit conversion, scenarios, keyboard navigation, sensitivity analysis and mobile layout.
 
-## Included
+## India effective-demand tools
+
+Use **India calculators** in the header to open three linked tools:
+
+- **`/india` — Homebuyer capacity:** cash and EMI requirements, buyer tiers, financing gaps, maximum affordable price, gross rental yield, appreciation relative to income and savings, and buying now versus delaying purchase.
+- **`/india/market` — Price vs buyer capacity:** exact-price segment results and a keyboard-accessible chart of financially capable and effective households at 21 prices from 50% to 150% of the entered price. The chart also has a data-table view.
+- **`/india/builders` — Builder / sales demand:** editable representative household groups, financial tiers, effective-demand counts, and exclusion reasons.
+
+All money is nominal INR, displayed with Indian digit grouping. Enter amounts in rupees (₹1 crore = 1,00,00,000). Defaults, household counts, interest rates, purchase costs, EMI limits, and loan-to-value limits are **illustrative, editable examples**, not sourced city estimates or lending rules. Each segment represents households with identical finances and demand factors; split differing profiles into separate, non-overlapping groups.
+
+The shared model in `src/india.ts` reuses the existing EMI calculation:
+
+1. Available purchase cash equals liquid funds less the protected reserve. Upfront purchase costs are paid from cash and excluded from the property value used for the loan-to-value limit.
+2. Required loan equals the positive remainder of property price plus purchase costs less available cash. EMI capacity equals the positive remainder of the selected share of monthly after-tax income less existing EMIs.
+3. Tier 1 covers the complete purchase cost with cash. Tier 2 requires borrowing and satisfies both cash/LTV and EMI constraints. Tier 3 fails one or both constraints. The maximum affordable price satisfies both financing limits; it excludes purchase costs from the displayed property price.
+4. Financial capacity alone does not establish effective demand. Need, desire, willingness to buy, and credit access for borrowers must also be present. Cash buyers do not require credit access. Counts are scenario results, not forecasts of sales velocity, absorption, or city demand.
+5. Appreciation burden is a one-year property-price change divided by annual income or annual savings. At 5× income, 1%, 4%, and 5% appreciation equal 5%, 20%, and 25% of annual income. The whole price increase is not assumed to be extra upfront cash.
+
+The homebuyer page also supports **Years before purchase**, from 0 to 30 years in whole months (including half-years). It compares today's capacity with the delayed purchase price, accumulated funds, loan, EMI budget, cash and EMI gaps, and financial tier, with annual checkpoints and a final partial-year checkpoint. A zero delay leaves today's results unchanged.
+
+- Price compounds as `today's price × (1 + annual appreciation)^(months / 12)`; the purchase-cost percentage applies to the projected price.
+- Available purchase funds exclude the protected reserve. They grow at the effective annual savings return converted to monthly compounding, followed by savings deposited at each month-end. Income changes on each anniversary, and the savings deposit uses the income earned during that month. The entered savings share is already after rent and living expenses; rent is not deducted again.
+- Annual after-tax income growth and savings returns both default to 0% and are editable. The protected reserve, existing monthly EMIs, future loan rate and term from purchase, financing limits, savings percentage, and demand factors remain fixed. This is a purchasing-capacity scenario, not a comparison of buy-now versus rent-and-invest ending wealth. Future scenarios beyond the model's monetary limits are rejected with validation errors.
+
+Valid edits recalculate immediately; invalid inputs show field errors and withhold dependent results. Each page keeps its inputs in memory and resets to examples on reload or navigation to another page. No inputs are uploaded or persisted. These tools do not calculate recurring ownership costs, tax benefits, a developer price floor, or detailed rent-versus-buy wealth outcomes. The existing US calculator and its USD reports and exports remain available at `/`.
+
+`public/_redirects` includes SPA rewrites for `/india` and `/india/*` on Cloudflare Pages. Other static hosts must serve `index.html` for these paths so direct links and refresh work. No hosting account connection or deployment is part of this change.
+
+## US calculator features
 
 - House price, dollar/percentage down payment, and holding periods up to 50 years in whole months.
 - Fixed-rate mortgage with custom term, cash purchases, zero interest, extra principal, and configurable PMI cancellation.

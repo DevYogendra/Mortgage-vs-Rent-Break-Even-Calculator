@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "vitest run tests/engine.test.ts tests/report.test.ts",
+    "test": "vitest run tests/engine.test.ts tests/report.test.ts tests/india.test.ts",
     "test:ui": "playwright test",
     "preview": "vite preview"
   },
