@@ -6,6 +6,11 @@
 .delay-chart-views button:focus-visible,.delay-chart-plot svg:focus-visible,.delay-month-control input:focus-visible{outline:2px solid var(--green);outline-offset:4px}
 .delay-chart-legend{display:flex;gap:12px 22px;flex-wrap:wrap;margin-bottom:12px;font-size:11px;color:#59654e}
 .delay-chart-legend span{display:flex;gap:7px;align-items:center}
+.delay-chart-pressure{padding:18px 0;margin:4px 0 15px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.delay-pressure-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:14px 0}
+.delay-pressure-metrics dt{font-size:11px;line-height:1.6;color:#68735f}
+.delay-pressure-metrics dd{font:600 27px Manrope,sans-serif;color:var(--green);margin:8px 0;overflow-wrap:anywhere}
+.delay-pressure-metrics small{display:block;font-size:10px;line-height:1.7;color:#68735f}
 .delay-chart-plot{width:100%;min-width:0}
 .delay-chart-plot>svg{display:block;width:100%;height:auto;touch-action:pan-y;cursor:crosshair}
 .delay-chart-plot .axis-text{font-size:11px}
@@ -20,5 +25,25 @@
 .delay-chart-inspector .india-metrics{margin-bottom:14px}
 .delay-chart-inspector .india-metric dd{font-size:24px}
 .india-delay-chart .india-chart-data table{min-width:1050px}
+.delay-bar-section,.delay-calculations{margin-top:26px;padding-top:23px;border-top:1px solid var(--line)}
+.delay-bars{padding:10px 0 0;margin:14px 0 12px}
+.delay-bar-row{margin-bottom:23px}
+.delay-bar-label{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:12px;font-size:12px;color:#68735f}
+.delay-bar-label strong{font:600 18px Manrope,sans-serif;color:var(--green);white-space:nowrap}
+.delay-bar-track{height:23px;position:relative;background:#e9eddf}
+.delay-bar-zero{position:absolute;top:-4px;bottom:-4px;width:1px;background:#a0ac94;z-index:1}
+.delay-bar-fill{position:absolute;top:0;bottom:0}
+.delay-bar-axis{position:relative;height:22px;font-size:10px;color:#68735f}
+.delay-bar-axis span{position:absolute;white-space:nowrap}
+.delay-calculation-table{min-width:700px}
+.delay-calculation-table tbody th{min-width:170px;white-space:normal;line-height:1.7}
+.delay-calculation-table thead th:nth-child(2){text-align:left}
+.delay-calculation-table td:nth-child(2){text-align:left;white-space:normal;min-width:260px;line-height:1.8}
+.delay-calculation-table td:last-child{min-width:140px}
+.delay-savings-periods{margin-top:12px}
+.delay-savings-periods summary{font-size:12px;font-weight:600;color:var(--green);padding:12px 0;cursor:pointer}
+.delay-savings-periods table{min-width:800px}
+.delay-savings-periods tfoot{font-weight:600;color:var(--green)}
+@media(max-width:480px){.delay-bar-label{font-size:11px;gap:12px}.delay-bar-label strong{font-size:16px}}
 @media(max-width:480px){.delay-chart-inspector .india-metric dd{font-size:20px}.delay-chart-views button{font-size:11px}.delay-chart-legend{font-size:10px;gap:10px 16px}}
 @media(prefers-reduced-motion:reduce){.delay-chart-views button{transition:none}}

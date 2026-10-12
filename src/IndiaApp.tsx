@@ -94,8 +94,8 @@ function PurchaseTimingInputs({ delay, setDelay, errors }: {
 function Metric({ label, value, note }: { label: string; value: ReactNode; note?: string }) {
   return <div className="india-metric"><dt>{label}</dt><dd>{value}</dd>{note && <small>{note}</small>}</div>
 }
-function HouseholdResults({ product, household, capacity: c, projection }: {
-  product: IndiaProduct; household: IndiaHousehold; capacity: HouseholdCapacity; projection: PurchaseDelayProjection;
+function HouseholdResults({ product, household, delay, capacity: c, projection }: {
+  product: IndiaProduct; household: IndiaHousehold; delay: PurchaseDelay; capacity: HouseholdCapacity; projection: PurchaseDelayProjection;
 }) {
   return <>
     <section className="india-result" aria-labelledby="capacity-heading"><p className="eyebrow">PURCHASING CAPACITY TODAY AT {shortMoney(product.price)}</p>
@@ -119,7 +119,7 @@ function HouseholdResults({ product, household, capacity: c, projection }: {
       </dl>
       <p className="india-note">Cash and EMI capacity define the tier. Credit access and willingness determine whether that capacity becomes effective demand. Recurring ownership costs are outside this EMI check.</p>
     </section>
-    <PurchaseDelayResults projection={projection} />
+    <PurchaseDelayResults projection={projection} product={product} household={household} delay={delay} />
     <section className="india-section india-growth"><div className="section-label"><h2>The income cost of rising prices</h2><span>One-year change</span></div>
       <p className="india-insight">{c.incomeMultiple === null ? 'Enter a positive income to compare the property price with annual income.' : <>This home costs <strong>{number(c.incomeMultiple)}×</strong> your annual after-tax income.</>}</p>
       <dl className="india-metrics"><Metric label={`${pct(product.appreciation)} property-price change`} value={money(c.appreciationAmount)} note={`${pct(c.appreciationIncomeShare)} of annual income`} />
@@ -130,7 +130,7 @@ function HouseholdResults({ product, household, capacity: c, projection }: {
     <YieldInsight product={product} />
   </>
 }
-function PurchaseDelayResults({ projection }: { projection: PurchaseDelayProjection }) {
+function PurchaseDelayResults({ projection, product, household, delay }: { projection: PurchaseDelayProjection; product: IndiaProduct; household: IndiaHousehold; delay: PurchaseDelay }) {
   const { current, delayed, timeline } = projection
   const now = current.capacity, later = delayed.capacity
   const horizon = `${number(delayed.years)} ${delayed.years === 1 ? 'year' : 'years'}`
@@ -159,7 +159,7 @@ function PurchaseDelayResults({ projection }: { projection: PurchaseDelayProject
         <Metric label="Total purchase-cost change" value={money(later.totalPurchaseCost - now.totalPurchaseCost)} note="Property price + upfront purchase costs" />
       </dl>
       <p className="india-note">Available purchase cash changes by {money(later.availableCash - now.availableCash)}; the complete purchase cost changes by {money(later.totalPurchaseCost - now.totalPurchaseCost)}. The required loan changes by {money(later.requiredLoan - now.requiredLoan)}.</p>
-      <PurchaseDelayChart projection={projection} />
+      <PurchaseDelayChart projection={projection} product={product} household={household} delay={delay} />
       <div className="table-scroll" tabIndex={0} role="region" aria-label="Buy now versus delayed purchase"><table className="india-delay-comparison"><caption>Purchasing capacity now and after {horizon}</caption><thead><tr><th scope="col">Measure</th><th scope="col">Buy now</th><th scope="col">After {horizon}</th></tr></thead><tbody>{rows.map(row => <tr key={row.label}><th scope="row">{row.label}</th><td>{row.now}</td><td>{row.later}</td></tr>)}</tbody></table></div>
       <details className="india-delay-timeline"><summary>Year-by-year affordability</summary><div className="table-scroll" tabIndex={0} role="region" aria-label="Purchase delay timeline"><table><caption>Annual checkpoints and the final purchase date. Scroll horizontally to inspect cash and EMI gaps.</caption><thead><tr><th scope="col">Years waited</th><th scope="col">Property price</th><th scope="col">Available cash</th><th scope="col">Annual income</th><th scope="col">Required EMI</th><th scope="col">EMI budget</th><th scope="col">Cash gap</th><th scope="col">EMI gap</th><th scope="col">Tier</th></tr></thead><tbody>{timeline.map(point => <tr key={point.years}><th scope="row">{number(point.years)}</th><td>{money(point.price)}</td><td>{money(point.capacity.availableCash)}</td><td>{money(point.annualIncome)}</td><td>{money(point.capacity.requiredEmi)}</td><td>{money(point.capacity.emiBudget)}</td><td>{money(point.capacity.cashGap)}</td><td>{money(point.capacity.emiGap)}</td><td>Tier {point.capacity.tier}</td></tr>)}</tbody></table></div></details>
       <p className="india-note">Price compounds at your annual appreciation assumption. Income changes on anniversaries; savings are deposited monthly after investment growth. The savings share is after rent and living expenses, so rent is not deducted again. The protected reserve, existing EMIs, loan rate, loan term from purchase, purchase-cost percentage, and demand factors stay fixed. This is a purchase-capacity projection, not a buy-now versus rent-and-invest wealth comparison.</p>
@@ -254,7 +254,7 @@ export default function IndiaApp({ page }: { page: IndiaPage }) {
         <p className="india-input-footer">Valid inputs update results immediately.</p>
       </aside><div className="india-results">
         {errors.length > 0 && <div className="validation india-validation" role="alert"><strong>Check your assumptions</strong><ul>{errors.map((error, i) => <li key={`${error.path}-${i}`}>{error.message}</li>)}</ul><p>Results are withheld until all inputs are valid.</p></div>}
-        {capacity && projection && <HouseholdResults product={product} household={household} capacity={capacity} projection={projection} />}
+        {capacity && projection && <HouseholdResults product={product} household={household} delay={delay} capacity={capacity} projection={projection} />}
         {demand && <><DemandResults product={product} demand={demand} />{points && <CapacityChart points={points} selectedPrice={product.price} />}<SegmentResults demand={demand} /><YieldInsight product={product} /></>}
         {page === 'market' && <details className="india-market-editor"><summary>Edit household segments</summary>{editor}</details>}
       </div></div>

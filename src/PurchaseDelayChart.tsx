@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent } from 'react'
-import type { PurchaseDelayPoint, PurchaseDelayProjection } from './india'
+import type { IndiaHousehold, IndiaProduct, PurchaseDelay, PurchaseDelayPoint, PurchaseDelayProjection } from './india'
+import { PurchaseDelayBars, PurchaseDelayCalculations } from './PurchaseDelayDetails'
 import './PurchaseDelayChart.css'
 
 const money = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Math.abs(n) < .5 ? 0 : n)
@@ -15,9 +16,9 @@ const elapsed = (month: number) => {
 type View = 'balances' | 'changes'
 interface Series { label: string; color: string; dash?: string; value: (point: PurchaseDelayPoint) => number }
 
-export default function PurchaseDelayChart({ projection }: { projection: PurchaseDelayProjection }) {
+export default function PurchaseDelayChart({ projection, product, household, delay }: { projection: PurchaseDelayProjection; product: IndiaProduct; household: IndiaHousehold; delay: PurchaseDelay }) {
   const { current, monthlyTimeline: points } = projection
-  const [view, setView] = useState<View>('balances')
+  const [view, setView] = useState<View>('changes')
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
   const [width, setWidth] = useState(760)
   const plotRef = useRef<HTMLDivElement>(null)
@@ -36,7 +37,7 @@ export default function PurchaseDelayChart({ projection }: { projection: Purchas
   ] : [
     { label: 'Extra purchase cost', color: '#786947', value: p => p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost },
     { label: 'Added purchase cash', color: '#2c5745', value: p => p.capacity.availableCash - current.capacity.availableCash },
-    { label: 'Savings set aside', color: '#698978', dash: '5 5', value: p => p.savingsContributions },
+    { label: 'Net purchase progress', color: '#698978', dash: '5 5', value: p => (p.capacity.availableCash - current.capacity.availableCash) - (p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost) },
   ]
   const values = points.flatMap(p => series.map(s => s.value(p)))
   const minValue = Math.min(0, ...values), maxValue = Math.max(1, ...values)
@@ -53,6 +54,9 @@ export default function PurchaseDelayChart({ projection }: { projection: Purchas
   const extraFees = point.capacity.purchaseCosts - current.capacity.purchaseCosts
   const extraCost = point.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost
   const extraCash = point.capacity.availableCash - current.capacity.availableCash
+  const netProgress = extraCash - extraCost
+  const offsetShare = point.savingsContributions > 0 ? Math.max(0, extraCost) / point.savingsContributions * 100 : null
+  const offsetLabel = offsetShare === null ? 'No new savings' : offsetShare > 10000 ? '>10,000%' : `${number(offsetShare)}%`
   const loanChange = point.capacity.requiredLoan - current.capacity.requiredLoan
   function inspect(event: PointerEvent<SVGSVGElement>) {
     if (event.type === 'pointermove' && event.pointerType !== 'mouse' && !event.buttons) return
@@ -72,11 +76,19 @@ export default function PurchaseDelayChart({ projection }: { projection: Purchas
       <button type="button" aria-pressed={view === 'changes'} onClick={() => setView('changes')}>Changes since today</button>
     </div>
     <div className="delay-chart-legend">{series.map(s => <span key={s.label}><svg width="24" height="10" aria-hidden="true"><line x1="0" x2="24" y1="5" y2="5" stroke={s.color} strokeWidth="3" strokeDasharray={s.dash} /></svg>{s.label}</span>)}</div>
+    <div className="delay-chart-pressure" role="region" aria-label="Cost of waiting" aria-live="polite" aria-atomic="true">
+      <p className="eyebrow">{elapsed(month)} · COST OF WAITING</p>
+      <dl className="delay-pressure-metrics">
+        <div><dt>New savings offset by higher purchase costs</dt><dd>{offsetLabel}</dd><small>{offsetShare === null ? 'No new savings have accumulated at this checkpoint.' : 'Purchase-cost rise ÷ new savings from income'}</small></div>
+        <div><dt>Net purchase progress</dt><dd>{money(netProgress)}</dd><small>Added purchase cash − extra purchase cost</small></div>
+      </dl>
+      <p className="india-note">{netProgress < -.5 ? 'Your cash has fallen behind the change in purchase cost; your funding margin is smaller.' : netProgress > .5 ? 'Your added cash is ahead of the purchase-cost increase by this amount.' : 'Your added cash and purchase-cost change are keeping pace.'} {extraCost < -.5 ? 'Falling purchase costs help your progress.' : extraCost > .5 ? 'Higher purchase costs offset the savings you accumulate.' : 'Purchase costs have not increased at this checkpoint.'}</p>
+    </div>
     <div ref={plotRef} className="delay-chart-plot">
       <svg viewBox={`0 0 ${width} ${height}`} tabIndex={0} role="group" aria-label="Savings and house price timeline" aria-describedby={`${id}-help`}
         onPointerDown={inspect} onPointerMove={inspect} onKeyDown={keyboard}>
         <title>House price, purchase cash, and the cost of waiting</title>
-        <desc>Use the month slider or left and right arrow keys to inspect monthly amounts. The changes view compares additional purchase costs with savings and investment growth.</desc>
+        <desc>Use the month slider or left and right arrow keys to inspect monthly amounts. The changes view compares additional purchase costs with savings and investment growth. The dashed net-progress line subtracts the extra purchase cost from added purchase cash; below zero means falling behind.</desc>
         {ticks.map(value => <g key={value}><line className={value === 0 ? 'delay-zero-line' : 'grid-line'} x1={left} x2={width - right} y1={sy(value)} y2={sy(value)} /><text className="axis-text" x={left - 10} y={sy(value) + 4} textAnchor="end">{shortMoney(value)}</text></g>)}
         {xTicks.map(m => <text key={m} className="axis-text" x={sx(m)} y={height - 22} textAnchor={m === 0 ? 'start' : m === months ? 'end' : 'middle'}>{number(m / 12)} yr</text>)}
         {series.map(s => <path key={s.label} d={points.map((p, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(s.value(p))}`).join(' ')} fill="none" stroke={s.color} strokeWidth="2.5" strokeDasharray={s.dash} />)}
@@ -88,6 +100,7 @@ export default function PurchaseDelayChart({ projection }: { projection: Purchas
       <input id={`${id}-month`} aria-label="Inspect month" type="range" min={0} max={months} step={1} value={month} aria-valuetext={elapsed(month)} onChange={e => setSelectedMonth(Number(e.target.value))} />
     </label>
     <p className="delay-chart-help" id={`${id}-help`}>Hover or tap the chart, drag the slider, or use arrow keys. Home selects today; End selects your purchase date.</p>
+    <PurchaseDelayBars current={current} point={point} />
     <div className="delay-chart-inspector" role="region" aria-label="Selected month amounts" aria-live="polite" aria-atomic="true">
       <p className="eyebrow">{elapsed(month)}</p>
       <dl className="india-metrics">
@@ -100,7 +113,8 @@ export default function PurchaseDelayChart({ projection }: { projection: Purchas
       </dl>
       <p className="india-note">Purchase cash added: <strong>{money(extraCash)}</strong> = {money(point.savingsContributions)} saved from income + {money(point.investmentGrowth)} investment gain / loss. Starting cash of {money(current.capacity.availableCash)} was already available today.</p>
     </div>
-    <p className="india-note">“Savings set aside” uses your entered savings share. It does not assume that avoiding a purchase saves the full EMI: you still pay rent, and owning would have other costs. Extra purchase cost is the change in the complete price plus upfront costs; the whole increase is not an upfront cash requirement.</p>
-    <details className="india-chart-data"><summary>View monthly savings and price data</summary><div className="table-scroll" role="region" aria-label="Monthly savings and price data" tabIndex={0}><table><caption>Monthly checkpoints; additional costs and cash are measured from today.</caption><thead><tr><th scope="col">Month</th><th scope="col">House price</th><th scope="col">Extra purchase cost</th><th scope="col">Savings set aside</th><th scope="col">Investment gain / loss</th><th scope="col">Available purchase cash</th><th scope="col">Added purchase cash</th><th scope="col">Change in required loan</th></tr></thead><tbody>{points.map((p, i) => <tr key={i}><th scope="row">{i}</th><td>{money(p.price)}</td><td>{money(p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost)}</td><td>{money(p.savingsContributions)}</td><td>{money(p.investmentGrowth)}</td><td>{money(p.capacity.availableCash)}</td><td>{money(p.capacity.availableCash - current.capacity.availableCash)}</td><td>{money(p.capacity.requiredLoan - current.capacity.requiredLoan)}</td></tr>)}</tbody></table></div></details>
+    <PurchaseDelayCalculations current={current} point={point} product={product} household={household} delay={delay} />
+    <p className="india-note">“Savings set aside” uses your entered savings share. Net purchase progress measures cash growth after allowing for the change in purchase cost; it is not a buy-versus-rent wealth return. Higher costs can offset over 100% of new savings. This does not mean those savings have been spent. It does not assume that avoiding a purchase saves the full EMI: you still pay rent, and owning would have other costs. Extra purchase cost is the change in the complete price plus upfront costs; the whole increase is not an upfront cash requirement.</p>
+    <details className="india-chart-data"><summary>View monthly savings and price data</summary><div className="table-scroll" role="region" aria-label="Monthly savings and price data" tabIndex={0}><table><caption>Monthly checkpoints; additional costs and cash are measured from today.</caption><thead><tr><th scope="col">Month</th><th scope="col">House price</th><th scope="col">Extra purchase cost</th><th scope="col">Savings set aside</th><th scope="col">Investment gain / loss</th><th scope="col">Available purchase cash</th><th scope="col">Added purchase cash</th><th scope="col">Net purchase progress</th><th scope="col">Change in required loan</th></tr></thead><tbody>{points.map((p, i) => <tr key={i}><th scope="row">{i}</th><td>{money(p.price)}</td><td>{money(p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost)}</td><td>{money(p.savingsContributions)}</td><td>{money(p.investmentGrowth)}</td><td>{money(p.capacity.availableCash)}</td><td>{money(p.capacity.availableCash - current.capacity.availableCash)}</td><td>{money((p.capacity.availableCash - current.capacity.availableCash) - (p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost))}</td><td>{money(p.capacity.requiredLoan - current.capacity.requiredLoan)}</td></tr>)}</tbody></table></div></details>
   </section>
 }
