@@ -69,8 +69,8 @@ function HouseholdInputs({ household, setHousehold, errors }: {
     {field('savingsRate', 'Annual savings share of income', true, 'Savings after rent and living expenses. Added to purchase funds while waiting; not deducted from the EMI budget.')}
   </Section><Section title="Effective-demand factors"><Gates household={household} onChange={setHousehold} /></Section></>
 }
-function PurchaseTimingInputs({ delay, setDelay, errors, advancedOnly = false }: {
-  delay: PurchaseDelay; setDelay: (d: PurchaseDelay) => void; errors: FieldError[]; advancedOnly?: boolean;
+function PurchaseTimingInputs({ delay, setDelay, errors, advancedOnly = false, hideSavingsReturn = false }: {
+  delay: PurchaseDelay; setDelay: (d: PurchaseDelay) => void; errors: FieldError[]; advancedOnly?: boolean; hideSavingsReturn?: boolean;
 }) {
   const field = (key: keyof PurchaseDelay, label: string, rate: boolean, hint: string) =>
     <NumberField path={`delay.${key}`} label={label} value={delay[key]} rate={rate} unit={rate ? '%' : 'years'}
@@ -78,7 +78,7 @@ function PurchaseTimingInputs({ delay, setDelay, errors, advancedOnly = false }:
   return <Section title="Purchase timing">
     {!advancedOnly && field('years', 'Years before purchase', false, '0 means buy now. Up to 30 years; half-years are supported.')}
     {field('incomeGrowth', 'Annual after-tax income growth', true, 'Income and savings rise on each anniversary. 0% keeps income unchanged.')}
-    {field('savingsReturn', 'Annual savings return', true, 'Effective return after taxes and fees on available purchase funds and new savings. 0% excludes returns.')}
+    {!hideSavingsReturn && field('savingsReturn', 'Annual savings return', true, 'Annual effective return after taxes and fees on available purchase funds and new savings. The annual rate is converted for monthly compounding. 0% excludes returns.')}
   </Section>
 }
 function Metric({ label, value, note }: { label: string; value: ReactNode; note?: string }) {
@@ -251,7 +251,7 @@ export default function IndiaApp({ page }: { page: IndiaPage }) {
       {page === 'buyer' && <div className="india-view-switch" role="group" aria-label="Calculator view"><button type="button" aria-pressed={beginner} onClick={() => setBeginner(true)}>Beginner view</button><button type="button" aria-pressed={!beginner} onClick={() => setBeginner(false)}>Full calculator</button></div>}
       {page !== 'buyer' && <p className="india-pool-help"><strong>Start with the home price.</strong> “Financially capable” households have enough cash and loan-payment capacity. “Effective buyers” also need and want the home, are willing to buy, and can access credit when borrowing. {page === 'market' ? 'Change the price to see both counts move. Open “Edit household segments” to use your own buyer groups.' : 'Edit the household groups below; keep people with different finances or buying intentions in separate rows.'} Counts are scenario estimates, not forecasts of sales.</p>}
       {page === 'buyer' && beginner ? <BeginnerBuyer key={guideVersion} product={product} setProduct={setProduct} household={household} setHousehold={setHousehold} delay={delay} setDelay={setDelay} errors={errors} projection={projection} goal={goal} reset={reset}
-        advanced={<><ProductInputs product={product} setProduct={setProduct} errors={errors} financingOnly /><PurchaseTimingInputs delay={delay} setDelay={setDelay} errors={errors} advancedOnly /><Section title="Ready to buy?"><p className="india-note">These factors affect effective demand, separately from your financial capacity.</p><Gates household={household} onChange={setHousehold} /></Section></>} further={fullBuyerResults} /> : <><div className="india-workspace"><aside className="inputs india-inputs" aria-label="Calculator assumptions"><div className="inputs-heading"><h2>Your assumptions</h2><button type="button" className="text-button" onClick={reset}>Reset examples</button></div>
+        advanced={<><ProductInputs product={product} setProduct={setProduct} errors={errors} financingOnly /><PurchaseTimingInputs delay={delay} setDelay={setDelay} errors={errors} advancedOnly hideSavingsReturn={goal === 'wait'} /><Section title="Ready to buy?"><p className="india-note">These factors affect effective demand, separately from your financial capacity.</p><Gates household={household} onChange={setHousehold} /></Section></>} further={fullBuyerResults} /> : <><div className="india-workspace"><aside className="inputs india-inputs" aria-label="Calculator assumptions"><div className="inputs-heading"><h2>Your assumptions</h2><button type="button" className="text-button" onClick={reset}>Reset examples</button></div>
         <ProductInputs product={product} setProduct={setProduct} errors={errors}>{page === 'buyer' && <PurchaseTimingInputs delay={delay} setDelay={setDelay} errors={errors} />}</ProductInputs>{page === 'buyer' && <HouseholdInputs household={household} setHousehold={setHousehold} errors={errors} />}
         <p className="india-input-footer">Valid inputs update results immediately.</p>
       </aside><div className="india-results">
