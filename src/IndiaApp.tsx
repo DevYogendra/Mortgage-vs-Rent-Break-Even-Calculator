@@ -42,7 +42,7 @@ function ProductInputs({ product, setProduct, errors, children, financingOnly = 
   const field = (key: keyof IndiaProduct, label: string, rate = false, unit = '₹', hint?: string) =>
     <NumberField path={key} label={label} value={product[key]} onChange={value => setProduct({ ...product, [key]: value })} rate={rate} unit={unit} errors={errors} hint={hint} />
   return <>{!financingOnly && <Section title="Property">
-    {field('price', 'Property price', false, '₹', 'Enter the price in rupees; 1 crore = 1,00,00,000.')}
+    <NumberField path="price" label="Property price" value={product.price / 1e7} onChange={value => setProduct({ ...product, price: value * 1e7 })} unit="₹ Cr" errors={errors} hint="Enter the price in crore. 1.5 Cr = ₹1,50,00,000." />
     {field('monthlyRent', 'Comparable monthly rent')}
     {field('appreciation', 'Annual property appreciation', true)}
   </Section>}{children}<details className="india-input-section india-financing" open><summary>Financing & purchase costs</summary><div className="india-detail-fields">

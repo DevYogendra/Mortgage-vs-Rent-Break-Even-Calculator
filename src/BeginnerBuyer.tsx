@@ -43,7 +43,7 @@ export default function BeginnerBuyer({ product, setProduct, household, setHouse
     <div className="beginner-layout"><form className="beginner-questions" onSubmit={e => { e.preventDefault(); if (!stageErrors.length && step < 2) go(step + 1) }}>
       <p className="eyebrow">STEP {step + 1} OF 3</p><h2 tabIndex={-1} ref={heading}>{step === 0 ? 'Which home are you considering?' : step === 1 ? 'What can your household put towards it?' : goal === 'wait' ? 'How long might you wait?' : 'Here is what your numbers mean'}</h2>
       {step === 0 && <div className="beginner-fields">
-        {field('Home price in lakh', 'price', product.price / 1e5, v => setProduct({ ...product, price: v * 1e5 }), 'lakh', `150 lakh = ₹1.5 crore. Enter the property price before purchase charges.`)}
+        {field('Home price in crore', 'price', product.price / 1e7, v => setProduct({ ...product, price: v * 1e7 }), '₹ Cr', '1.5 Cr = ₹1,50,00,000. Enter the property price before purchase charges.')}
         {field('Rent for a similar home per month', 'monthlyRent', product.monthlyRent, v => setProduct({ ...product, monthlyRent: v }), '₹', 'Used to show rental yield. Your savings below should already account for rent.')}
       </div>}
       {step === 1 && <div className="beginner-fields">
