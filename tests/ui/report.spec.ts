@@ -22,7 +22,7 @@ function expectReport(actual: unknown, expected: unknown) {
   }
 }
 
-test('opens and inspects the report, exports all months, and keeps a calculated snapshot', async ({ page }) => {
+test('opens and inspects the report, exports all months, and keeps downloads in sync with live inputs', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
@@ -58,11 +58,11 @@ test('opens and inspects the report, exports all months, and keeps a calculated 
   expect(csv).toBe(monthlyCsv(createCalculationReport(simulate(defaults))))
   expect(csv.trimEnd().split('\r\n')).toHaveLength(121)
   await page.getByLabel('Purchase price', { exact: true }).fill('650000')
-  await expect(report.locator('.report-stale')).toContainText('last calculated assumptions')
+  await expect(report.locator('.report-stale')).toHaveCount(0)
+  await expect(report.locator('.report-intro')).toContainText('$650,000.00')
   const [oldDownload] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download calculation JSON' }).click()])
   const oldJson = JSON.parse(await readFile((await oldDownload.path())!, 'utf8'))
-  expectReport(oldJson, createCalculationReport(simulate(defaults)))
-  await page.getByRole('button', { name: 'Calculate break-even' }).click()
+  expectReport(oldJson, createCalculationReport(simulate({ ...defaults, price: 650000 })))
   await expect(report).toHaveAttribute('open', '')
   await expect(report.locator('.report-stale')).toHaveCount(0)
   await expect(page.getByLabel('Ledger year')).toHaveValue('1')
@@ -84,11 +84,8 @@ test('mobile report handles partial years, negative returns and a zero sale-pric
   await page.goto('/')
   await page.getByLabel('Down payment', { exact: true }).fill('100')
   await page.getByLabel('Years in the home', { exact: true }).fill('1.5')
-  await page.getByRole('button', { name: '03 Rent' }).click()
   await page.getByLabel('Current monthly rent', { exact: true }).fill('50000')
-  await page.getByRole('button', { name: /04 Investment/ }).click()
   await page.getByLabel('Annual investment return', { exact: true }).fill('-10')
-  await page.getByRole('button', { name: 'Calculate break-even' }).click()
   await page.getByRole('link', { name: 'Show calculations' }).click()
   const report = page.locator('#calculation-report')
   await expect(report.getByRole('heading', { name: 'No appreciation threshold' })).toBeVisible()

@@ -47,3 +47,4 @@
 @media(max-width:480px){.delay-bar-label{font-size:11px;gap:12px}.delay-bar-label strong{font-size:16px}}
 @media(max-width:480px){.delay-chart-inspector .india-metric dd{font-size:20px}.delay-chart-views button{font-size:11px}.delay-chart-legend{font-size:10px;gap:10px 16px}}
 @media(prefers-reduced-motion:reduce){.delay-chart-views button{transition:none}}
+.compact-delay{border-top:1px solid var(--line);border-bottom:0;margin:0;padding:15px 0 0}.compact-delay>.delay-month-control{margin-top:0}.compact-delay>.delay-chart-help{margin:5px 0 12px}.compact-delay .delay-bar-section{margin:10px 0 18px}.compact-delay>.compact-disclosure{margin-top:0}.compact-delay .delay-calculations{margin:0 0 18px}.compact-delay .delay-chart-plot{margin-top:15px}.compact-delay .delay-chart-views{margin-top:8px}

@@ -1,30 +1,28 @@
 import { test, expect } from '@playwright/test'
-import { openFullIndia } from './fullIndia'
 
 test('theme selection changes appearance without changing calculator inputs or results', async ({ page }) => {
   await page.goto('/india')
-  await openFullIndia(page)
-  await page.getByLabel('Years before purchase', { exact: true }).fill('5')
+  await page.getByLabel('Waiting period', { exact: true }).fill('5')
   const selector = page.getByRole('combobox', { name: 'Color theme' })
   await selector.selectOption('light')
-  const result = await page.locator('.india-delay-answer').innerText()
+  await page.getByText('Explore monthly timeline', { exact: true }).click()
+  await page.getByText('How this was calculated', { exact: true }).click()
+  const result = await page.locator('.compact-waiting').innerText()
   const calculations = await page.getByRole('region', { name: 'Detailed waiting calculation' }).innerText()
   const lightStroke = await page.locator('.delay-chart-plot path').first().evaluate(el => getComputedStyle(el).stroke)
   await selector.selectOption('dark')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await expect(page.getByLabel('Years before purchase', { exact: true })).toHaveValue('5')
-  await expect(page.locator('.india-delay-answer')).toHaveText(result)
+  await expect(page.getByLabel('Waiting period', { exact: true })).toHaveValue('5')
+  expect(await page.locator('.compact-waiting').innerText()).toBe(result)
   expect(await page.getByRole('region', { name: 'Detailed waiting calculation' }).innerText()).toBe(calculations)
   expect(await page.locator('.delay-chart-plot path').first().evaluate(el => getComputedStyle(el).stroke)).not.toBe(lightStroke)
-  await page.getByRole('button', { name: 'Reset examples' }).click()
+  await page.getByRole('button', { name: 'Reset' }).click()
   await expect(selector).toHaveValue('dark')
   await page.reload()
-  await openFullIndia(page)
   await expect(selector).toHaveValue('dark')
-  await expect(page.getByLabel('Years before purchase', { exact: true })).toHaveValue('0')
+  await expect(page.getByLabel('Waiting period', { exact: true })).toHaveValue('5')
   for (const route of ['/india/market', '/india/builders', '/']) {
     await page.goto(route)
-    await openFullIndia(page)
     await expect(page.getByRole('combobox', { name: 'Color theme' })).toHaveValue('dark')
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   }
@@ -33,7 +31,6 @@ test('theme selection changes appearance without changing calculator inputs or r
 test('system theme follows device changes while an explicit choice stays fixed', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
   await page.goto('/india')
-  await openFullIndia(page)
   const selector = page.getByRole('combobox', { name: 'Color theme' })
   await expect(selector).toHaveValue('system')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
@@ -55,7 +52,6 @@ test('invalid saved preferences and blocked storage fall back safely', async ({ 
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.addInitScript(() => { try { localStorage.setItem('home-rent-theme', 'invalid') } catch { /* Storage is blocked in the second scenario. */ } })
   await page.goto('/india')
-  await openFullIndia(page)
   await expect(page.getByRole('combobox', { name: 'Color theme' })).toHaveValue('system')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.addInitScript(() => {
@@ -63,10 +59,10 @@ test('invalid saved preferences and blocked storage fall back safely', async ({ 
     Storage.prototype.setItem = () => { throw new Error('Storage blocked') }
   })
   await page.reload()
-  await openFullIndia(page)
   await page.getByRole('combobox', { name: 'Color theme' }).selectOption('light')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-  await expect(page.locator('.india-result')).toContainText('Tier 2')
+  await page.getByText('Buyer tiers & buying intentions', { exact: true }).click()
+  await expect(page.locator('.compact-tier-status')).toContainText('Tier 2')
   expect(errors).toEqual([])
 })
 
@@ -75,7 +71,6 @@ test('theme selector supports keyboard access and dark layouts fit every route o
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/india')
-  await openFullIndia(page)
   const selector = page.getByRole('combobox', { name: 'Color theme' })
   await selector.focus()
   await selector.press('End')
@@ -83,7 +78,6 @@ test('theme selector supports keyboard access and dark layouts fit every route o
   await expect(selector).toHaveValue('dark')
   for (const [route, name] of [['/', 'us'], ['/india', 'buyer'], ['/india/market', 'market'], ['/india/builders', 'builders']]) {
     await page.goto(route)
-    await openFullIndia(page)
     await expect(page.getByRole('combobox', { name: 'Color theme' })).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -93,8 +87,7 @@ test('theme selector supports keyboard access and dark layouts fit every route o
     await page.setViewportSize({ width: 390, height: 844 })
   }
   await page.goto('/india')
-  await openFullIndia(page)
-  await page.getByLabel('Years before purchase', { exact: true }).fill('5')
+  await page.getByLabel('Waiting period', { exact: true }).fill('5')
   await page.locator('.delay-bar-section').screenshot({ path: 'artifacts/theme-dark-bars-mobile.png', animations: 'disabled' })
   await page.setViewportSize({ width: 320, height: 700 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
