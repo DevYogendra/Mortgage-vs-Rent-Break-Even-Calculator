@@ -1,0 +1,24 @@
+.india-delay-chart{margin:28px 0;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.india-delay-chart .section-label h3{font:600 16px Manrope,sans-serif;color:var(--green)}
+.delay-chart-views{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 18px}
+.delay-chart-views button{border:1px solid var(--line);border-radius:5px;background:transparent;padding:10px 13px;font:600 12px Manrope,sans-serif;color:#59654e;cursor:pointer;transition:background .15s,color .15s}
+.delay-chart-views button[aria-pressed=true]{background:var(--green);color:var(--surface);border-color:var(--green)}
+.delay-chart-views button:focus-visible,.delay-chart-plot svg:focus-visible,.delay-month-control input:focus-visible{outline:2px solid var(--green);outline-offset:4px}
+.delay-chart-legend{display:flex;gap:12px 22px;flex-wrap:wrap;margin-bottom:12px;font-size:11px;color:#59654e}
+.delay-chart-legend span{display:flex;gap:7px;align-items:center}
+.delay-chart-plot{width:100%;min-width:0}
+.delay-chart-plot>svg{display:block;width:100%;height:auto;touch-action:pan-y;cursor:crosshair}
+.delay-chart-plot .axis-text{font-size:11px}
+.delay-zero-line{stroke:#aeb8a3;stroke-width:1}
+.delay-month-control{display:block;margin:10px 0}
+.delay-month-control>span{display:flex;justify-content:space-between;gap:16px;font-size:12px;color:#68735f}
+.delay-month-control strong{font-weight:600;color:var(--green)}
+.delay-month-control input{display:block;width:100%;margin:12px 0 0;accent-color:var(--green);min-height:28px;cursor:pointer}
+.delay-chart-help{font-size:11px;line-height:1.7;color:#68735f}
+.delay-chart-inspector{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.delay-chart-inspector .eyebrow{margin-bottom:18px}
+.delay-chart-inspector .india-metrics{margin-bottom:14px}
+.delay-chart-inspector .india-metric dd{font-size:24px}
+.india-delay-chart .india-chart-data table{min-width:1050px}
+@media(max-width:480px){.delay-chart-inspector .india-metric dd{font-size:20px}.delay-chart-views button{font-size:11px}.delay-chart-legend{font-size:10px;gap:10px 16px}}
+@media(prefers-reduced-motion:reduce){.delay-chart-views button{transition:none}}

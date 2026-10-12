@@ -199,6 +199,7 @@ describe('Delayed property purchases', () => {
   it('zero delay preserves today’s inputs and capacity exactly', () => {
     const result = evaluatePurchaseDelay(p, h, delay())
     expect(result.timeline).toHaveLength(1)
+    expect(result.monthlyTimeline).toEqual(result.timeline)
     expect(result.current.capacity).toEqual(evaluateHousehold(p, h))
     expect(result.delayed).toEqual(result.current)
     expect(result.delayed.savingsContributions).toBe(0)
@@ -281,7 +282,35 @@ describe('Delayed property purchases', () => {
     expect(losses.delayed.investmentGrowth).toBeCloseTo(-9999, 8)
     const long = evaluatePurchaseDelay({ ...p, appreciation: 0 }, h, delay({ years: 30 }))
     expect(long.timeline).toHaveLength(31)
+    expect(long.monthlyTimeline).toHaveLength(361)
     expect(long.delayed.capacity.availableCash).toBe(370000)
+  })
+  it('exposes every month for chart inspection without changing the annual checkpoints', () => {
+    const result = evaluatePurchaseDelay(p, h, delay({ years: 1.5, incomeGrowth: .1 }))
+    expect(result.monthlyTimeline).toHaveLength(19)
+    expect(result.monthlyTimeline[0]).toBe(result.current)
+    expect(result.monthlyTimeline[18]).toBe(result.delayed)
+    expect(result.timeline).toEqual([result.monthlyTimeline[0], result.monthlyTimeline[12], result.monthlyTimeline[18]])
+    const first = result.monthlyTimeline[1]
+    expect(first.years).toBe(1 / 12)
+    expect(first.price).toBeCloseTo(100000 * 1.1 ** (1 / 12), 8)
+    expect(first.savingsContributions).toBe(1000)
+    expect(first.capacity.availableCash).toBe(11000)
+    expect(result.monthlyTimeline[13].savingsContributions).toBeCloseTo(13100, 8)
+  })
+  it('reconciles extra costs, savings and returns at every month, including falling prices and cash purchases', () => {
+    const result = evaluatePurchaseDelay({ ...p, appreciation: -.1 }, { ...h, liquidFunds: 300000 }, delay({ years: 2, savingsReturn: -.05 }))
+    for (const point of result.monthlyTimeline) {
+      const extraPrice = point.price - result.current.price
+      const extraFees = point.capacity.purchaseCosts - result.current.capacity.purchaseCosts
+      expect(point.capacity.totalPurchaseCost - result.current.capacity.totalPurchaseCost).toBeCloseTo(extraPrice + extraFees, 7)
+      expect(point.capacity.availableCash - result.current.capacity.availableCash).toBeCloseTo(point.savingsContributions + point.investmentGrowth, 7)
+      expect(point.capacity.requiredLoan).toBe(0)
+      expect(point.capacity.requiredLoan - result.current.capacity.requiredLoan).toBe(0)
+    }
+    expect(result.delayed.investmentGrowth).toBeLessThan(0)
+    expect(result.delayed.savingsContributions).toBe(24000)
+    expect(result.delayed.price).toBeCloseTo(81000, 8)
   })
   it.each([
     { years: -1 }, { years: NaN }, { years: 31 }, { years: 1.01 },

@@ -86,6 +86,7 @@ export interface PurchaseDelayProjection {
   current: PurchaseDelayPoint
   delayed: PurchaseDelayPoint
   timeline: PurchaseDelayPoint[]
+  monthlyTimeline: PurchaseDelayPoint[]
 }
 export const purchaseDelayDefaults: PurchaseDelay = { years: 0, incomeGrowth: 0, savingsReturn: 0 }
 
@@ -235,7 +236,7 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
   range(errors, 'delay.savingsReturn', 'Annual savings return (%)', delay.savingsReturn * 100, -99, 100)
   if (errors.length) return { errors, projection: null }
 
-  const timeline: PurchaseDelayPoint[] = []
+  const timeline: PurchaseDelayPoint[] = [], monthlyTimeline: PurchaseDelayPoint[] = []
   const initialCash = h.liquidFunds - h.reserve
   const monthlyReturn = Math.expm1(Math.log1p(delay.savingsReturn) / 12)
   const months = Math.round(delay.years * 12)
@@ -252,15 +253,17 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
     if (projectedErrors.length) {
       errors.push(...projectedErrors.map(e => ({
         path: e.path === 'price' && projectedProduct.price < 1 ? 'appreciation' : 'delay.years',
-        message: `After ${years} ${years === 1 ? 'year' : 'years'} of waiting: ${e.message} Adjust the delay or growth assumptions.`,
+        message: `After ${years.toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${years === 1 ? 'year' : 'years'} of waiting: ${e.message} Adjust the delay or growth assumptions.`,
       })))
       return false
     }
-    timeline.push({
+    const point: PurchaseDelayPoint = {
       years, price: projectedProduct.price, annualIncome: projectedHousehold.annualIncome,
       savingsContributions, investmentGrowth: cash - initialCash - savingsContributions,
       capacity: calculateCapacity(projectedProduct, projectedHousehold),
-    })
+    }
+    monthlyTimeline.push(point)
+    if (month % 12 === 0 || month === months) timeline.push(point)
     return true
   }
   if (!snapshot(0)) return { errors, projection: null }
@@ -271,9 +274,9 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
     const contribution = annualIncome * h.savingsRate / 12
     cash = cash * (1 + monthlyReturn) + contribution
     savingsContributions += contribution
-    if ((month % 12 === 0 || month === months) && !snapshot(month)) return { errors, projection: null }
+    if (!snapshot(month)) return { errors, projection: null }
   }
-  return { errors, projection: { current: timeline[0], delayed: timeline.at(-1)!, timeline } }
+  return { errors, projection: { current: timeline[0], delayed: timeline.at(-1)!, timeline, monthlyTimeline } }
 }
 export function validatePurchaseDelay(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDelay): FieldError[] {
   return purchaseDelayScenario(p, h, delay).errors

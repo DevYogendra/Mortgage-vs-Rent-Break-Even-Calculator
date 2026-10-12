@@ -10,6 +10,7 @@ import type {
 } from './india'
 import './App.css'
 import './IndiaApp.css'
+import PurchaseDelayChart from './PurchaseDelayChart'
 
 export type IndiaPage = 'buyer' | 'market' | 'builders'
 const money = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
@@ -158,6 +159,7 @@ function PurchaseDelayResults({ projection }: { projection: PurchaseDelayProject
         <Metric label="Total purchase-cost change" value={money(later.totalPurchaseCost - now.totalPurchaseCost)} note="Property price + upfront purchase costs" />
       </dl>
       <p className="india-note">Available purchase cash changes by {money(later.availableCash - now.availableCash)}; the complete purchase cost changes by {money(later.totalPurchaseCost - now.totalPurchaseCost)}. The required loan changes by {money(later.requiredLoan - now.requiredLoan)}.</p>
+      <PurchaseDelayChart projection={projection} />
       <div className="table-scroll" tabIndex={0} role="region" aria-label="Buy now versus delayed purchase"><table className="india-delay-comparison"><caption>Purchasing capacity now and after {horizon}</caption><thead><tr><th scope="col">Measure</th><th scope="col">Buy now</th><th scope="col">After {horizon}</th></tr></thead><tbody>{rows.map(row => <tr key={row.label}><th scope="row">{row.label}</th><td>{row.now}</td><td>{row.later}</td></tr>)}</tbody></table></div>
       <details className="india-delay-timeline"><summary>Year-by-year affordability</summary><div className="table-scroll" tabIndex={0} role="region" aria-label="Purchase delay timeline"><table><caption>Annual checkpoints and the final purchase date. Scroll horizontally to inspect cash and EMI gaps.</caption><thead><tr><th scope="col">Years waited</th><th scope="col">Property price</th><th scope="col">Available cash</th><th scope="col">Annual income</th><th scope="col">Required EMI</th><th scope="col">EMI budget</th><th scope="col">Cash gap</th><th scope="col">EMI gap</th><th scope="col">Tier</th></tr></thead><tbody>{timeline.map(point => <tr key={point.years}><th scope="row">{number(point.years)}</th><td>{money(point.price)}</td><td>{money(point.capacity.availableCash)}</td><td>{money(point.annualIncome)}</td><td>{money(point.capacity.requiredEmi)}</td><td>{money(point.capacity.emiBudget)}</td><td>{money(point.capacity.cashGap)}</td><td>{money(point.capacity.emiGap)}</td><td>Tier {point.capacity.tier}</td></tr>)}</tbody></table></div></details>
       <p className="india-note">Price compounds at your annual appreciation assumption. Income changes on anniversaries; savings are deposited monthly after investment growth. The savings share is after rent and living expenses, so rent is not deducted again. The protected reserve, existing EMIs, loan rate, loan term from purchase, purchase-cost percentage, and demand factors stay fixed. This is a purchase-capacity projection, not a buy-now versus rent-and-invest wealth comparison.</p>
