@@ -1,5 +1,24 @@
 import { test, expect } from '@playwright/test'
 
+for (const goal of ['afford', 'wait']) {
+  test(`step three shows the ${goal} answer immediately on desktop and mobile`, async ({ page }) => {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 700 }]) {
+      await page.setViewportSize(viewport)
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.goto(`/india?goal=${goal}`)
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await page.getByRole('button', { name: goal === 'afford' ? 'See my result' : 'Continue', exact: true }).click()
+      const answer = page.getByRole('region', { name: 'Your answer', exact: true })
+      await expect(answer.getByRole('heading')).toBeFocused()
+      await expect(answer.getByRole('heading')).toBeInViewport({ ratio: 1 })
+      await expect(answer.locator('.india-metric dd').first()).toBeInViewport({ ratio: 1 })
+      if (goal === 'wait') await expect(answer.locator('p').nth(1)).toBeInViewport({ ratio: 1 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      await page.screenshot({ path: `artifacts/beginner-result-${goal}-${viewport.width}.png`, animations: 'disabled' })
+    }
+  })
+}
+
 test('beginners get focused steps, familiar units and the same affordability result', async ({ page }) => {
   await page.goto('/india')
   await expect(page.getByRole('button', { name: 'Beginner view', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -12,7 +31,8 @@ test('beginners get focused steps, familiar units and the same affordability res
   await page.getByLabel('Home price in crore').fill('1.6')
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'What can your household put towards it?' })).toBeFocused()
-  await expect(page.getByLabel('Monthly take-home income')).toHaveValue('250000')
+  await expect(page.getByLabel('Monthly take-home income')).toHaveValue('2.5')
+  await expect(page.getByLabel('Monthly take-home income').locator('..')).toContainText('₹ lakh')
   await expect(page.getByLabel('Savings available in lakh')).toHaveValue('55')
   await expect(page.getByLabel('Money to keep untouched in lakh')).toHaveValue('5')
   await page.getByLabel('Monthly savings after rent and bills').fill('50000')
@@ -94,7 +114,7 @@ test('monthly savings are preserved on income edits and zero-income cash buyers 
   await page.goto('/india')
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
   await page.getByLabel('Monthly savings after rent and bills').fill('50000')
-  await page.getByLabel('Monthly take-home income').fill('300000')
+  await page.getByLabel('Monthly take-home income').fill('3')
   await expect(page.getByLabel('Monthly savings after rent and bills')).toHaveValue('50000')
   await page.getByLabel('Savings available in lakh').fill('300')
   await page.getByLabel('Monthly take-home income').fill('0')
