@@ -29,7 +29,8 @@ export default function BeginnerBuyer({ product, setProduct, household, setHouse
     requestAnimationFrame(() => {
       const target = next === 2 ? resultHeading.current ?? heading.current : heading.current
       target?.focus({ preventScroll: true })
-      target?.scrollIntoView({ block: 'start', behavior: 'instant' })
+      const scrollTarget = next === 2 && resultHeading.current ? resultHeading.current.closest('section') : target
+      scrollTarget?.scrollIntoView({ block: 'start', behavior: 'instant' })
     })
   }
   const field = (label: string, path: string, value: number, onChange: (v: number) => void, unit = '₹', hint?: string, rate = false) =>
@@ -54,7 +55,7 @@ export default function BeginnerBuyer({ product, setProduct, household, setHouse
         <p className="india-note">This checks purchasing capacity under your assumptions. Capacity alone does not mean a household wants or is ready to buy. Savings already account for rent; this is not a comparison of total wealth from buying versus renting.</p>
       </section>}
     <div className="beginner-layout"><form className="beginner-questions" onSubmit={e => { e.preventDefault(); if (!stageErrors.length && step < 2) go(step + 1) }}>
-      <p className="eyebrow">STEP {step + 1} OF 3</p><h2 tabIndex={-1} ref={heading}>{step === 0 ? 'Which home are you considering?' : step === 1 ? 'What can your household put towards it?' : goal === 'wait' ? 'How long might you wait?' : 'Here is what your numbers mean'}</h2>
+      <p className="eyebrow">STEP {step + 1} OF 3</p><h2 tabIndex={-1} ref={heading}>{step === 0 ? 'Which home are you considering?' : step === 1 ? 'What can your household put towards it?' : goal === 'wait' ? 'How long might you wait?' : 'Review your answers'}</h2>
       {step === 0 && <div className="beginner-fields">
         {field('Home price in crore', 'price', product.price / 1e7, v => setProduct({ ...product, price: v * 1e7 }), '₹ Cr', '1.5 Cr = ₹1,50,00,000. Enter the property price before purchase charges.')}
         {field('Rent for a similar home per month', 'monthlyRent', product.monthlyRent, v => setProduct({ ...product, monthlyRent: v }), '₹', 'Used to show rental yield. Your savings below should already account for rent.')}
@@ -72,7 +73,7 @@ export default function BeginnerBuyer({ product, setProduct, household, setHouse
       </div>}
       {step === 2 && <p className="india-note">Home: {familiarMoney(product.price)} · Take-home income: {familiarMoney(household.annualIncome / 12)}/month · Savings: {money(household.annualIncome * household.savingsRate / 12)}/month. Use Back to edit your answers.</p>}
       {stageErrors.length > 0 && step < 2 && <p className="india-field-error beginner-blocked">Correct the highlighted fields to continue.</p>}
-      <div className="beginner-actions">{step > 0 && <button type="button" className="india-secondary-button" onClick={() => go(step - 1)}>Back</button>}{step < 2 && <button type="submit" className="beginner-primary" disabled={stageErrors.length > 0}>{step === 1 && goal === 'afford' ? 'See my result' : 'Continue'}</button>}</div>
+      <div className="beginner-actions">{step > 0 && <button type="button" className="india-secondary-button" onClick={() => go(step - 1)}>Back</button>}{step < 2 && <button type="submit" className="beginner-primary" disabled={stageErrors.length > 0}>{step === 1 && goal === 'afford' ? 'See my result' : 'Continue'}</button>}{step === 2 && goal === 'wait' && <button type="button" className="beginner-primary" disabled={!capacity} onClick={() => go(2)}>View updated result</button>}</div>
     </form><aside className="beginner-assumptions" aria-label="Model assumptions"><h3>Assumptions used</h3><p>{number(product.loanRate * 100)}% loan interest · {number(product.termYears)} years<br />Up to {number(product.maxLtv * 100)}% of the home price borrowed<br />All loan payments up to {number(product.maxEmiShare * 100)}% of take-home income<br />{number(product.purchaseCostRate * 100)}% upfront purchase charges</p><p>Income growth: {number(delay.incomeGrowth * 100)}% · Savings return: {number(delay.savingsReturn * 100)}% per year.</p><details><summary>Advanced settings</summary>{advanced}</details><p className="india-note">These examples are illustrative. Your lender’s actual terms may differ.</p></aside></div>
     {errors.length > 0 && (step === 2 || errors.some(e => !stagePaths.includes(e.path))) && <div className="validation" role="alert"><strong>Check your answers</strong><ul>{errors.map((e, i) => <li key={i}>{e.path === 'savingsRate' ? savingsErrors.find(s => s.path === 'savingsRate')?.message : e.message}</li>)}</ul><p>Results are withheld. Use Back for home and finance answers, or open Advanced settings for other assumptions.</p></div>}
     {step === 2 && capacity && point && now && <div className="beginner-results">

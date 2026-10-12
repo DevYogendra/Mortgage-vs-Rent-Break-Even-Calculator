@@ -12,7 +12,16 @@ for (const goal of ['afford', 'wait']) {
       await expect(answer.getByRole('heading')).toBeFocused()
       await expect(answer.getByRole('heading')).toBeInViewport({ ratio: 1 })
       await expect(answer.locator('.india-metric dd').first()).toBeInViewport({ ratio: 1 })
-      if (goal === 'wait') await expect(answer.locator('p').nth(1)).toBeInViewport({ ratio: 1 })
+      await expect(answer.locator('.eyebrow')).toBeInViewport({ ratio: 1 })
+      if (goal === 'wait') {
+        await expect(answer.locator('p').nth(1)).toBeInViewport({ ratio: 1 })
+        await page.getByLabel('Years you might wait').fill('3')
+        await page.getByRole('button', { name: 'View updated result', exact: true }).click()
+        await expect(answer.getByRole('heading')).toBeFocused()
+        await expect(answer.getByRole('heading')).toBeInViewport({ ratio: 1 })
+        await expect(answer.locator('.eyebrow')).toBeInViewport({ ratio: 1 })
+        await expect(answer).toContainText('₹22.5 lakh')
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       await page.screenshot({ path: `artifacts/beginner-result-${goal}-${viewport.width}.png`, animations: 'disabled' })
     }
