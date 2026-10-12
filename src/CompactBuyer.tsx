@@ -15,8 +15,7 @@ const help = [
   ['Home price', 'Price before purchase charges. 1 Cr = ₹1 crore = ₹1,00,00,000.'],
   ['Comparable rent', 'Monthly rent for a similar home, used for gross rental yield.'],
   ['Take-home income', 'Combined household income after tax. 1 lakh = ₹1,00,000.'],
-  ['Liquid purchase funds', 'Cash and accessible investments you can use for this purchase.'],
-  ['Protected reserve', 'Emergency money kept untouched, excluded from purchase funds and investment returns.'],
+  ['Liquid purchase funds', 'Cash and accessible investments you can use for this purchase. Enter only the amount you are willing to put towards buying.'],
   ['Existing loan payments', 'Monthly payments on your other loans, deducted from the total loan-payment budget.'],
   ['Savings', 'New income set aside after rent and living expenses. Choose a monthly amount or a share of income. Amount mode keeps the amount when income changes; percentage mode keeps the share. During waiting, this initial share grows with income. Avoided home-loan payments are not added again.'],
   ['Waiting period', '0 means buying today; up to 30 years in whole-month increments, such as 2.5 years.'],
@@ -87,7 +86,6 @@ export default function CompactBuyer({ product, setProduct, household, setHouseh
         {pf('monthlyRent', 'Comparable rent', '₹/mo')}
         {field('Take-home income', 'annualIncome', income / 1e5, setIncome, '₹ lakh/mo')}
         {field('Liquid purchase funds', 'liquidFunds', household.liquidFunds / 1e5, v => setHousehold({ ...household, liquidFunds: v * 1e5 }), '₹ lakh')}
-        {field('Protected reserve', 'reserve', household.reserve / 1e5, v => setHousehold({ ...household, reserve: v * 1e5 }), '₹ lakh')}
         {field('Existing loan payments', 'existingEmi', household.existingEmi, v => setHousehold({ ...household, existingEmi: v }), '₹/mo')}
         <div className="field compact-savings"><label htmlFor={savingsId}>Savings</label><div className="input-wrap">
           <input id={savingsId} aria-label="Savings" type="number" step="any" disabled={savingsUnit === 'percent' && !(income > 0)} value={Number.isFinite(displayedSavings) ? Number(displayedSavings.toFixed(8)) : ''} aria-invalid={!!savingsError} aria-describedby={savingsError ? `${savingsId}-error` : undefined} onChange={e => {

@@ -15,7 +15,6 @@ export interface IndiaProduct {
 export interface IndiaHousehold {
   annualIncome: number
   liquidFunds: number
-  reserve: number
   existingEmi: number
   savingsRate: number
   need: boolean
@@ -95,7 +94,7 @@ export const indiaProductDefaults: IndiaProduct = {
   loanRate: .085, termYears: 20, maxLtv: .75, maxEmiShare: .4,
 }
 export const indiaHouseholdDefaults: IndiaHousehold = {
-  annualIncome: 3000000, liquidFunds: 5500000, reserve: 500000, existingEmi: 0,
+  annualIncome: 3000000, liquidFunds: 5500000, existingEmi: 0,
   savingsRate: .25, need: true, desire: true, creditAccess: true, willingness: true,
 }
 export const indiaSegmentDefaults: HouseholdSegment[] = [
@@ -128,10 +127,9 @@ export function validateHousehold(h: IndiaHousehold): FieldError[] {
   const errors: FieldError[] = []
   for (const [key, label] of [
     ['annualIncome', 'Annual after-tax income'], ['liquidFunds', 'Liquid purchase funds'],
-    ['reserve', 'Protected cash reserve'], ['existingEmi', 'Existing monthly EMIs'],
+    ['existingEmi', 'Existing monthly EMIs'],
   ] as const) range(errors, key, `${label} (₹)`, h[key], 0, 1e12)
   range(errors, 'savingsRate', 'Annual savings (%)', h.savingsRate * 100, 0, 100)
-  if (h.reserve > h.liquidFunds) errors.push({ path: 'reserve', message: 'Protected cash reserve cannot exceed liquid purchase funds.' })
   return errors
 }
 export function validateSegments(segments: HouseholdSegment[]): FieldError[] {
@@ -152,7 +150,7 @@ function assertValid(errors: FieldError[]) {
   if (errors.length) throw new Error(errors.map(e => e.message).join(' '))
 }
 function calculateCapacity(p: IndiaProduct, h: IndiaHousehold): HouseholdCapacity {
-  const availableCash = h.liquidFunds - h.reserve
+  const availableCash = h.liquidFunds
   const purchaseCosts = p.price * p.purchaseCostRate
   const totalPurchaseCost = p.price + purchaseCosts
   const requiredLoan = Math.max(0, totalPurchaseCost - availableCash)
@@ -237,7 +235,7 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
   if (errors.length) return { errors, projection: null }
 
   const timeline: PurchaseDelayPoint[] = [], monthlyTimeline: PurchaseDelayPoint[] = []
-  const initialCash = h.liquidFunds - h.reserve
+  const initialCash = h.liquidFunds
   const monthlyReturn = Math.expm1(Math.log1p(delay.savingsReturn) / 12)
   const months = Math.round(delay.years * 12)
   let cash = initialCash, savingsContributions = 0
@@ -245,7 +243,7 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
     const years = month / 12
     const projectedProduct = { ...p, price: p.price * (1 + p.appreciation) ** years }
     const projectedHousehold = {
-      ...h, liquidFunds: cash + h.reserve,
+      ...h, liquidFunds: cash,
       annualIncome: h.annualIncome * (1 + delay.incomeGrowth) ** Math.floor(years),
     }
     // Keep projected scenarios within the same monetary limits as today's inputs.

@@ -45,7 +45,7 @@ function BusinessHelp() {
   return <details className="compact-help compact-business-help"><summary>Help with fields</summary><dl>
     <div><dt>Property & rental yield</dt><dd>Price is in crore before purchase charges; 1.5 Cr = ₹1,50,00,000. Comparable monthly rent determines gross rental yield. Appreciation is an annual scenario, not a forecast.</dd></div>
     <div><dt>Financing & purchase costs</dt><dd>Interest is an annual loan rate; term starts at purchase. Loan-to-value limits borrowing against the property price. Upfront charges are paid in cash, outside that financed value. All loan payments together must fit the entered income share.</dd></div>
-    <div><dt>Household finances</dt><dd>Take-home income uses lakh per month; liquid funds and reserves use lakh. The protected reserve is excluded from purchase cash. Existing monthly EMIs reduce the budget available for a home loan. Savings is a share of after-tax income, after rent and living expenses.</dd></div>
+    <div><dt>Household finances</dt><dd>Take-home income uses lakh per month; liquid purchase funds use lakh. Enter only the funds available for buying. Existing monthly EMIs reduce the budget available for a home loan. Savings is a share of after-tax income, after rent and living expenses.</dd></div>
     <div><dt>Segments & effective buyers</dt><dd>Each segment represents households with identical finances and buying intentions. Split different profiles into separate, non-overlapping groups. Financially capable households fit the cash and EMI limits. Effective buyers also meet need, desire, willingness and credit access when borrowing; cash buyers do not require credit.</dd></div>
   </dl><p className="india-pool-help">Buyer counts are illustrative scenario estimates, not forecasts of absorption or sales velocity.</p></details>
 }
@@ -111,7 +111,7 @@ function SegmentEditor({ segments, setSegments, errors }: { segments: HouseholdS
   const fields = [
     ['count', 'Household count', false, 1, 'households'],
     ['annualIncome', 'Monthly take-home income', false, 12e5, '₹ lakh/mo'],
-    ['liquidFunds', 'Liquid purchase funds', false, 1e5, '₹ lakh'], ['reserve', 'Protected cash reserve', false, 1e5, '₹ lakh'],
+    ['liquidFunds', 'Liquid purchase funds', false, 1e5, '₹ lakh'],
     ['existingEmi', 'Existing monthly EMIs', false, 1, '₹/mo'], ['savingsRate', 'Annual savings share', true, 1, '%'],
   ] as const
   const nameError = errors.find(e => e.path === `${selected?.id}.name`)

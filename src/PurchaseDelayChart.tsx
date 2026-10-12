@@ -113,7 +113,7 @@ export default function PurchaseDelayChart({ projection, product, household, del
         <div className="india-metric"><dt>Extra purchase cost</dt><dd>{money(extraCost)}</dd><small>Price change + {money(extraFees)} change in upfront costs</small></div>
         <div className="india-metric"><dt>Savings set aside while waiting</dt><dd>{money(point.savingsContributions)}</dd><small>New savings from income, after rent and living expenses</small></div>
         <div className="india-metric"><dt>Investment gain / loss</dt><dd>{money(point.investmentGrowth)}</dd><small>Return on starting purchase cash and new savings</small></div>
-        <div className="india-metric"><dt>Available purchase cash</dt><dd>{money(point.capacity.availableCash)}</dd><small>Starting cash + savings + returns; reserve excluded</small></div>
+        <div className="india-metric"><dt>Available purchase cash</dt><dd>{money(point.capacity.availableCash)}</dd><small>Starting cash + savings + returns</small></div>
         <div className="india-metric"><dt>Change in required loan</dt><dd>{money(loanChange)}</dd><small>Compared with buying today; a negative value means less borrowing</small></div>
       </dl>
       <p className="india-note">Purchase cash added: <strong>{money(extraCash)}</strong> = {money(point.savingsContributions)} saved from income + {money(point.investmentGrowth)} investment gain / loss. Starting cash of {money(current.capacity.availableCash)} was already available today.</p>

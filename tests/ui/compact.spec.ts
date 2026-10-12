@@ -8,11 +8,13 @@ const comparison = (page: Page, name: string) => page.locator('.compact-comparis
 
 test('all financial inputs are visible and results update immediately without moving focus or scrolling', async ({ page }) => {
   await page.goto('/india')
-  await expect(page.locator('.compact-input-grid input[type=number]')).toHaveCount(16)
+  await expect(page.locator('.compact-input-grid input[type=number]')).toHaveCount(15)
+  await expect(page.getByLabel('Protected reserve', { exact: true })).toHaveCount(0)
   for (const input of await page.locator('.compact-input-grid input').all()) await expect(input).toBeVisible()
   await expect(field(page, 'Home price')).toHaveValue('1.5')
   await expect(field(page, 'Take-home income')).toHaveValue('2.5')
   await expect(field(page, 'Liquid purchase funds')).toHaveValue('55')
+  await expect(comparison(page, 'Available purchase cash').locator('td').first()).toHaveText('₹55,00,000')
   await expect(field(page, 'Waiting period')).toHaveValue('5')
   await expect(comparison(page, 'Purchase capacity')).toContainText('Cash + loan fit')
   await expect(page.locator('.compact-waiting')).toContainText('₹37.5 lakh')
@@ -79,6 +81,7 @@ test('reset and reload restore five years and other defaults; old goal links sti
 test('12% effective annual savings return grows 50 lakh to 56 lakh in a year with no deposits', async ({ page }) => {
   await page.goto('/india')
   await field(page, 'Savings').fill('0')
+  await field(page, 'Liquid purchase funds').fill('50')
   await field(page, 'Waiting period').fill('1')
   await field(page, 'Savings return').fill('12')
   await expect(comparison(page, 'Available purchase cash').locator('td').last()).toHaveText('₹56,00,000')
@@ -96,7 +99,7 @@ test('errors stay next to fields and withhold all dependent results until repair
   await page.goto('/india')
   for (const [name, invalid, valid] of [
     ['Home price', '0', '1.5'], ['Comparable rent', '-1', '31250'], ['Take-home income', '', '2.5'],
-    ['Liquid purchase funds', '-1', '55'], ['Protected reserve', '56', '5'], ['Existing loan payments', '-1', '0'],
+    ['Liquid purchase funds', '-1', '55'], ['Existing loan payments', '-1', '0'],
     ['Waiting period', '1.01', '5'], ['House-price growth', '-100', '4'], ['Savings return', '-100', '0'],
     ['Income growth', '-100', '0'], ['Loan interest', '-1', '8.5'], ['Loan term', '0', '20'],
     ['Maximum financed share', '101', '75'], ['Total loan-payment limit', '101', '40'], ['Upfront purchase charges', '-1', '7'],
@@ -120,19 +123,19 @@ test('errors stay next to fields and withhold all dependent results until repair
   await expect(page.getByRole('alert')).toBeVisible()
 })
 
-test('cash and EMI shortfalls reflect reserves, existing debt and financed-share limits', async ({ page }) => {
+test('cash and EMI shortfalls reflect purchase funds, existing debt and financed-share limits', async ({ page }) => {
   await page.goto('/india')
   await field(page, 'Liquid purchase funds').fill('40')
-  await expect(comparison(page, 'Cash shortfall').locator('td').first()).toHaveText('₹13,00,000')
+  await expect(comparison(page, 'Cash shortfall').locator('td').first()).toHaveText('₹8,00,000')
   await field(page, 'Liquid purchase funds').fill('55')
   await field(page, 'Existing loan payments').fill('100000')
   await expect(comparison(page, 'Purchase capacity').locator('td').first()).toHaveText('Beyond this budget')
   await expect(comparison(page, 'Monthly-payment shortfall').locator('td').first()).not.toHaveText('₹0')
   await field(page, 'Existing loan payments').fill('0')
   await field(page, 'Loan interest').fill('0')
-  await expect(comparison(page, 'Required monthly loan payment').locator('td').first()).toHaveText('₹46,042')
+  await expect(comparison(page, 'Required monthly loan payment').locator('td').first()).toHaveText('₹43,958')
   await disclose(page, 'Loan & purchase reconciliation')
-  await expect(page.getByRole('region', { name: 'Loan reconciliation' })).toContainText('₹1,10,50,000')
+  await expect(page.getByRole('region', { name: 'Loan reconciliation' })).toContainText('₹1,05,50,000')
 })
 
 test('zero income cash buyers save zero and are exempt from credit; all other demand gates apply', async ({ page }) => {

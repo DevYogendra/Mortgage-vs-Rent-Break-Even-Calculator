@@ -41,12 +41,12 @@ describe('Cash, EMI and financing capacity', () => {
   it('reproduces the income-backed default with independent payment value', () => {
     const r = evaluateHousehold(product(), household())
     expect(r.tier).toBe(2)
-    expect(r.availableCash).toBe(5000000)
+    expect(r.availableCash).toBe(5500000)
     expect(r.purchaseCosts).toBeCloseTo(1050000, 7)
     expect(r.totalPurchaseCost).toBe(16050000)
-    expect(r.requiredLoan).toBe(11050000)
+    expect(r.requiredLoan).toBe(10550000)
     // Independent 50-digit Decimal annuity calculation, rounded for comparison.
-    expect(r.requiredEmi).toBeCloseTo(95894.46728689149, 6)
+    expect(r.requiredEmi).toBeCloseTo(91555.35112006382, 6)
     expect(r.emiBudget).toBe(100000)
     expect(r.minimumUpfrontCash).toBe(4800000)
     expect(r.cashGap).toBe(0)
@@ -54,7 +54,7 @@ describe('Cash, EMI and financing capacity', () => {
     expect(r.effectiveDemand).toBe(true)
   })
   it('supports cash purchases with no income, EMI capacity, or credit', () => {
-    const r = evaluateHousehold(product({ maxLtv: 0, maxEmiShare: 0 }), household({ annualIncome: 0, liquidFunds: 16050000, reserve: 0, creditAccess: false }))
+    const r = evaluateHousehold(product({ maxLtv: 0, maxEmiShare: 0 }), household({ annualIncome: 0, liquidFunds: 16050000, creditAccess: false }))
     expect(r.tier).toBe(1)
     expect(r.requiredLoan).toBe(0)
     expect(r.requiredEmi).toBe(0)
@@ -63,7 +63,7 @@ describe('Cash, EMI and financing capacity', () => {
   })
   it('accepts exact cash, LTV and EMI equality boundaries', () => {
     const p = product({ price: 1000, purchaseCostRate: 0, loanRate: 0, termYears: 1, maxLtv: .8, maxEmiShare: 1 })
-    const h = household({ annualIncome: 800, liquidFunds: 200, reserve: 0 })
+    const h = household({ annualIncome: 800, liquidFunds: 200 })
     const r = evaluateHousehold(p, h)
     expect(r.tier).toBe(2)
     expect(r.requiredEmi).toBeCloseTo(800 / 12, 12)
@@ -73,7 +73,7 @@ describe('Cash, EMI and financing capacity', () => {
   it('detects a cash / LTV failure separately from an EMI failure', () => {
     const r = evaluateHousehold(product(), household({ annualIncome: 10000000, liquidFunds: 4000000 }))
     expect(r.tier).toBe(3)
-    expect(r.cashGap).toBe(1300000)
+    expect(r.cashGap).toBe(800000)
     expect(r.loanToValueGap).toBe(r.cashGap)
     expect(r.emiGap).toBe(0)
     expect(r.exclusions).toEqual(['cash-ltv'])
@@ -85,8 +85,8 @@ describe('Cash, EMI and financing capacity', () => {
     expect(r.emiGap).toBeGreaterThan(0)
     expect(r.exclusions).toEqual(['emi'])
   })
-  it('deducts reserves and existing debt, clamping the EMI budget at zero', () => {
-    const r = evaluateHousehold(product(), household({ reserve: 1000000, existingEmi: 110000 }))
+  it('uses all purchase funds and deducts existing debt, clamping the EMI budget at zero', () => {
+    const r = evaluateHousehold(product(), household({ liquidFunds: 4500000, existingEmi: 110000 }))
     expect(r.availableCash).toBe(4500000)
     expect(r.emiBudget).toBe(0)
     expect(r.incomeLoanCapacity).toBe(0)
@@ -95,14 +95,14 @@ describe('Cash, EMI and financing capacity', () => {
   })
   it('handles fully financed, zero-cost purchases with no upfront funds', () => {
     const p = product({ purchaseCostRate: 0, maxLtv: 1 })
-    const h = household({ liquidFunds: 0, reserve: 0 })
+    const h = household({ liquidFunds: 0 })
     const r = evaluateHousehold(p, h)
     expect(Number.isFinite(r.maxAffordablePrice)).toBe(true)
     expect(r.maxAffordablePrice).toBeCloseTo(r.incomeLoanCapacity, 7)
     expect(evaluateHousehold(p, { ...h, annualIncome: 0 }).maxAffordablePrice).toBe(0)
   })
   it('excludes upfront fees from the LTV-financed value', () => {
-    const r = evaluateHousehold(product({ purchaseCostRate: .1 }), household())
+    const r = evaluateHousehold(product({ purchaseCostRate: .1 }), household({ liquidFunds: 5000000 }))
     expect(r.maxLtvLoan).toBe(11250000)
     expect(r.minimumUpfrontCash).toBe(5250000)
     expect(r.cashGap).toBe(250000)
@@ -178,7 +178,7 @@ describe('India input validation', () => {
   })
   it.each([
     { annualIncome: -1 }, { annualIncome: NaN }, { liquidFunds: Infinity }, { existingEmi: -1 },
-    { reserve: 5500001 }, { reserve: -1 }, { savingsRate: 1.01 },
+    { liquidFunds: -1 }, { liquidFunds: NaN }, { savingsRate: 1.01 },
   ])('rejects invalid household values: %s', patch => {
     expect(validateHousehold(household(patch)).length).toBeGreaterThan(0)
     expect(() => evaluateHousehold(product(), household(patch))).toThrow()
@@ -194,7 +194,7 @@ describe('India input validation', () => {
 
 describe('Delayed property purchases', () => {
   const p = product({ price: 100000, appreciation: .1, purchaseCostRate: .05, loanRate: 0, termYears: 10, maxLtv: .8 })
-  const h = household({ annualIncome: 24000, liquidFunds: 20000, reserve: 10000, savingsRate: .5 })
+  const h = household({ annualIncome: 24000, liquidFunds: 10000, savingsRate: .5 })
 
   it('zero delay preserves today’s inputs and capacity exactly', () => {
     const result = evaluatePurchaseDelay(p, h, delay())
@@ -205,7 +205,7 @@ describe('Delayed property purchases', () => {
     expect(result.delayed.savingsContributions).toBe(0)
     expect(result.delayed.investmentGrowth).toBe(0)
     expect(p.price).toBe(100000)
-    expect(h.liquidFunds).toBe(20000)
+    expect(h.liquidFunds).toBe(10000)
   })
   it('compounds prices and costs, adds savings, and recomputes cash and EMI capacity', () => {
     const result = evaluatePurchaseDelay(p, h, delay({ years: 2 }))
@@ -238,7 +238,7 @@ describe('Delayed property purchases', () => {
     expect(result.delayed.capacity.availableCash).toBeCloseTo(28600, 8)
     expect(result.delayed.annualIncome).toBeCloseTo(26400, 8)
   })
-  it('compounds only available cash, leaving the protected reserve untouched', () => {
+  it('compounds all liquid purchase funds', () => {
     const result = evaluatePurchaseDelay(p, { ...h, savingsRate: 0 }, delay({ years: 2, savingsReturn: .21 }))
     expect(result.delayed.capacity.availableCash).toBeCloseTo(14641, 8)
     expect(result.delayed.investmentGrowth).toBeCloseTo(4641, 8)
@@ -255,8 +255,8 @@ describe('Delayed property purchases', () => {
     const result = evaluatePurchaseDelay(product({ appreciation: .1 }), household(), delay({ years: 3 }))
     expect(result.current.capacity.tier).toBe(2)
     expect(result.delayed.price).toBeCloseTo(19965000, 6)
-    expect(result.delayed.capacity.availableCash).toBe(7250000)
-    expect(result.delayed.capacity.requiredLoan).toBeCloseTo(14112550, 6)
+    expect(result.delayed.capacity.availableCash).toBe(7750000)
+    expect(result.delayed.capacity.requiredLoan).toBeCloseTo(13612550, 6)
     expect(result.delayed.capacity.tier).toBe(3)
     expect(result.delayed.capacity.emiGap).toBeGreaterThan(0)
   })
