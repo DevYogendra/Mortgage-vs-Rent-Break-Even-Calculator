@@ -11,6 +11,10 @@ import type {
 import './App.css'
 import './IndiaApp.css'
 import PurchaseDelayChart from './PurchaseDelayChart'
+import ThemeSelector from './ThemeSelector'
+import NumberField from './IndiaField'
+import BeginnerBuyer from './BeginnerBuyer'
+import type { BuyerGoal } from './BeginnerBuyer'
 
 export type IndiaPage = 'buyer' | 'market' | 'builders'
 const money = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
@@ -29,33 +33,19 @@ const reasonLabels: Record<Exclusion, string> = {
   need: 'No housing need', desire: 'No desire to own', credit: 'No access to credit', willingness: 'Not willing to buy today',
 }
 
-function NumberField({ label, value, onChange, rate = false, unit = '₹', errors = [], path, hint }: {
-  label: string; value: number; onChange: (value: number) => void; rate?: boolean;
-  unit?: string; errors?: FieldError[]; path: string; hint?: string;
-}) {
-  const id = useId(), error = errors.find(e => e.path === path)
-  const displayed = value * (rate ? 100 : 1)
-  return <label className="field" htmlFor={id}><span>{label}</span><span className="input-wrap">
-    {!rate && unit === '₹' && <span className="input-prefix">₹</span>}
-    <input id={id} aria-label={label} type="number" step="any" value={Number.isFinite(displayed) ? Number(displayed.toFixed(8)) : ''}
-      onChange={e => onChange(e.target.value === '' ? NaN : Number(e.target.value) / (rate ? 100 : 1))}
-      aria-invalid={!!error} aria-describedby={error || hint ? `${id}-note` : undefined} />
-    {(rate || unit !== '₹') && <span className="input-suffix">{rate ? '%' : unit}</span>}
-  </span>{(error || hint) && <small id={`${id}-note`} className={error ? 'india-field-error' : undefined}>{error?.message || hint}</small>}</label>
-}
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return <section className="india-input-section"><h2>{title}</h2>{children}</section>
 }
-function ProductInputs({ product, setProduct, errors, children }: {
-  product: IndiaProduct; setProduct: (p: IndiaProduct) => void; errors: FieldError[]; children?: ReactNode;
+function ProductInputs({ product, setProduct, errors, children, financingOnly = false }: {
+  product: IndiaProduct; setProduct: (p: IndiaProduct) => void; errors: FieldError[]; children?: ReactNode; financingOnly?: boolean;
 }) {
   const field = (key: keyof IndiaProduct, label: string, rate = false, unit = '₹', hint?: string) =>
     <NumberField path={key} label={label} value={product[key]} onChange={value => setProduct({ ...product, [key]: value })} rate={rate} unit={unit} errors={errors} hint={hint} />
-  return <><Section title="Property">
+  return <>{!financingOnly && <Section title="Property">
     {field('price', 'Property price', false, '₹', 'Enter the price in rupees; 1 crore = 1,00,00,000.')}
     {field('monthlyRent', 'Comparable monthly rent')}
     {field('appreciation', 'Annual property appreciation', true)}
-  </Section>{children}<details className="india-input-section india-financing" open><summary>Financing & purchase costs</summary><div className="india-detail-fields">
+  </Section>}{children}<details className="india-input-section india-financing" open><summary>Financing & purchase costs</summary><div className="india-detail-fields">
     {field('purchaseCostRate', 'Upfront purchase costs', true, '%', 'Stamp duty, registration, and other nonrecoverable costs. Paid from cash, outside the financed property value.')}
     <div className="field-row">{field('loanRate', 'Home-loan interest rate', true)}{field('termYears', 'Loan term', false, 'years')}</div>
     {field('maxLtv', 'Maximum loan-to-value', true, '%', 'Editable financing assumption, not a lender eligibility determination.')}
@@ -79,14 +69,14 @@ function HouseholdInputs({ household, setHousehold, errors }: {
     {field('savingsRate', 'Annual savings share of income', true, 'Savings after rent and living expenses. Added to purchase funds while waiting; not deducted from the EMI budget.')}
   </Section><Section title="Effective-demand factors"><Gates household={household} onChange={setHousehold} /></Section></>
 }
-function PurchaseTimingInputs({ delay, setDelay, errors }: {
-  delay: PurchaseDelay; setDelay: (d: PurchaseDelay) => void; errors: FieldError[];
+function PurchaseTimingInputs({ delay, setDelay, errors, advancedOnly = false }: {
+  delay: PurchaseDelay; setDelay: (d: PurchaseDelay) => void; errors: FieldError[]; advancedOnly?: boolean;
 }) {
   const field = (key: keyof PurchaseDelay, label: string, rate: boolean, hint: string) =>
     <NumberField path={`delay.${key}`} label={label} value={delay[key]} rate={rate} unit={rate ? '%' : 'years'}
       onChange={value => setDelay({ ...delay, [key]: value })} errors={errors} hint={hint} />
   return <Section title="Purchase timing">
-    {field('years', 'Years before purchase', false, '0 means buy now. Up to 30 years; half-years are supported.')}
+    {!advancedOnly && field('years', 'Years before purchase', false, '0 means buy now. Up to 30 years; half-years are supported.')}
     {field('incomeGrowth', 'Annual after-tax income growth', true, 'Income and savings rise on each anniversary. 0% keeps income unchanged.')}
     {field('savingsReturn', 'Annual savings return', true, 'Effective return after taxes and fees on available purchase funds and new savings. 0% excludes returns.')}
   </Section>
@@ -189,10 +179,10 @@ function CapacityChart({ points, selectedPrice }: { points: PriceCapacityPoint[]
       {[...new Set([0, 1, 2, 3, 4].map(i => Math.round(yMax * i / 4)))].map(count => <g key={count}><line className="grid-line" x1={left} x2={width - right} y1={sy(count)} y2={sy(count)} /><text className="axis-text" x={left - 12} y={sy(count) + 4} textAnchor="end">{number(count)}</text></g>)}
       {[0, 5, 10, 15, 20].map(i => <text className="axis-text" key={i} x={sx(points[i].price)} y={height - 23} textAnchor={i === 0 ? 'start' : i === 20 ? 'end' : 'middle'}>{shortMoney(points[i].price)}</text>)}
       <line className="selected-line" x1={sx(selectedPrice)} x2={sx(selectedPrice)} y1={top} y2={height - bottom} />
-      {(['capable', 'effective'] as const).map(key => <path key={key} d={points.map((p, i) => `${i ? 'L' : 'M'}${sx(p.price)},${sy(p[key])}`).join(' ')} fill="none" stroke={key === 'capable' ? '#8a9777' : '#2c5745'} strokeWidth={key === 'capable' ? 5 : 2.5} strokeDasharray={key === 'capable' ? '6 5' : undefined} />)}
+      {(['capable', 'effective'] as const).map(key => <path key={key} d={points.map((p, i) => `${i ? 'L' : 'M'}${sx(p.price)},${sy(p[key])}`).join(' ')} fill="none" stroke={key === 'capable' ? 'var(--chart-capable)' : 'var(--chart-effective)'} strokeWidth={key === 'capable' ? 5 : 2.5} strokeDasharray={key === 'capable' ? '6 5' : undefined} />)}
       {points.map((p, i) => <g key={i} tabIndex={0} role="button" aria-label={`${money(p.price)}: ${number(p.capable)} capable, ${number(p.effective)} effective households`} aria-pressed={active === i} onFocus={() => setActive(i)} onMouseEnter={() => setActive(i)} onClick={() => setActive(i)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActive(i) } }} className="india-chart-point">
         <rect x={sx(p.price) - 12} y={top} width={24} height={height - bottom - top} fill="transparent" />
-        <circle cx={sx(p.price)} cy={sy(p.capable)} r={active === i ? 6 : 3} fill="#8a9777" /><circle cx={sx(p.price)} cy={sy(p.effective)} r={active === i ? 5 : 2.5} fill="#2c5745" />
+        <circle cx={sx(p.price)} cy={sy(p.capable)} r={active === i ? 6 : 3} fill="var(--chart-capable)" /><circle cx={sx(p.price)} cy={sy(p.effective)} r={active === i ? 5 : 2.5} fill="var(--chart-effective)" />
       </g>)}
     </svg><p className="india-chart-caption" id={captionId} aria-live="polite">{inspected ? `${money(inspected.price)} · ${number(inspected.capable)} capable · ${number(inspected.effective)} effective households` : 'Hover, focus, or select a price point to inspect household counts.'}</p>
     <details className="india-chart-data"><summary>View all 21 chart prices</summary><div className="table-scroll" role="region" aria-label="Price capacity data" tabIndex={0}><table><thead><tr><th scope="col">Property price</th><th scope="col">Financially capable</th><th scope="col">Effective demand</th></tr></thead><tbody>{points.map(p => <tr key={p.price}><th scope="row">{money(p.price)}</th><td>{number(p.capable)}</td><td>{number(p.effective)}</td></tr>)}</tbody></table></div></details>
@@ -228,7 +218,10 @@ function KnowledgeNotes() {
 export default function IndiaApp({ page }: { page: IndiaPage }) {
   const [product, setProduct] = useState<IndiaProduct>(() => structuredClone(indiaProductDefaults))
   const [household, setHousehold] = useState<IndiaHousehold>(() => structuredClone(indiaHouseholdDefaults))
-  const [delay, setDelay] = useState<PurchaseDelay>(() => structuredClone(purchaseDelayDefaults))
+  const [goal, setGoal] = useState<BuyerGoal>(() => new URLSearchParams(window.location.search).get('goal') === 'wait' ? 'wait' : 'afford')
+  const [delay, setDelay] = useState<PurchaseDelay>(() => ({ ...purchaseDelayDefaults, years: new URLSearchParams(window.location.search).get('goal') === 'wait' ? 5 : 0 }))
+  const [beginner, setBeginner] = useState(true)
+  const [guideVersion, setGuideVersion] = useState(0)
   const [segments, setSegments] = useState<HouseholdSegment[]>(() => structuredClone(indiaSegmentDefaults))
   const info = pageInfo[page]
   useEffect(() => {
@@ -244,21 +237,30 @@ export default function IndiaApp({ page }: { page: IndiaPage }) {
   function reset() {
     setProduct(structuredClone(indiaProductDefaults)); setHousehold(structuredClone(indiaHouseholdDefaults)); setSegments(structuredClone(indiaSegmentDefaults))
     setDelay(structuredClone(purchaseDelayDefaults))
+    setGuideVersion(v => v + 1)
   }
-  return <div className="india-app"><header className="site-header india-header"><a href="/" className="brand">Home<span className="brand-light"> / </span>Rent</a><span className="header-description">India · Effective demand</span><a className="india-us-link" href="/">US calculator ↗</a></header>
+  const fullBuyerResults = capacity && projection ? <HouseholdResults product={product} household={household} delay={delay} capacity={capacity} projection={projection} /> : null
+  return <div className="india-app"><header className="site-header india-header"><a href="/" className="brand">Home<span className="brand-light"> / </span>Rent</a><span className="header-description">India · Effective demand</span><a className="india-us-link" href="/">US calculator ↗</a><ThemeSelector /></header>
     <nav className="india-nav" aria-label="India calculators">{(Object.keys(pageInfo) as IndiaPage[]).map(key => <a key={key} href={pageInfo[key].href} aria-current={key === page ? 'page' : undefined}>{pageInfo[key].title}</a>)}</nav>
-    <main id="main"><div className="page-intro"><div><p className="eyebrow">INDIA / HOUSING NEED ≠ EFFECTIVE DEMAND</p><h1>{info.title}</h1><p>{info.description}</p></div><span className="currency-label">INR · Household capacity</span></div>
+    <main id="main"><div className="page-intro"><div><p className="eyebrow">INDIA / HOUSING NEED ≠ EFFECTIVE DEMAND</p><h1>{info.title}</h1><p>{page === 'buyer' && beginner ? 'Answer a few questions to see what you can afford and how waiting changes the numbers.' : info.description}</p></div><span className="currency-label">INR · Household capacity</span></div>
       <div className="india-example-note"><span>Illustrative examples · all assumptions are editable</span><span>Calculated in your browser</span></div>
-      <div className="india-workspace"><aside className="inputs india-inputs" aria-label="Calculator assumptions"><div className="inputs-heading"><h2>Your assumptions</h2><button type="button" className="text-button" onClick={reset}>Reset examples</button></div>
+      <section className="india-goals" aria-label="Choose your question"><h2>What would you like to understand?</h2><div className="india-goal-links">
+        {page === 'buyer' ? <><button type="button" aria-pressed={goal === 'afford'} onClick={() => { setGoal('afford'); setGuideVersion(v => v + 1) }}>Can I afford this home?</button><button type="button" aria-pressed={goal === 'wait'} onClick={() => { setGoal('wait'); if (delay.years === 0) setDelay({ ...delay, years: 5 }); setGuideVersion(v => v + 1) }}>What happens if I wait?</button></> : <><a href="/india">Can I afford this home?</a><a href="/india?goal=wait">What happens if I wait?</a></>}
+        <a href="/india/market" aria-current={page === 'market' ? 'page' : undefined}>How many households can buy?</a>
+      </div></section>
+      {page === 'buyer' && <div className="india-view-switch" role="group" aria-label="Calculator view"><button type="button" aria-pressed={beginner} onClick={() => setBeginner(true)}>Beginner view</button><button type="button" aria-pressed={!beginner} onClick={() => setBeginner(false)}>Full calculator</button></div>}
+      {page !== 'buyer' && <p className="india-pool-help"><strong>Start with the home price.</strong> “Financially capable” households have enough cash and loan-payment capacity. “Effective buyers” also need and want the home, are willing to buy, and can access credit when borrowing. {page === 'market' ? 'Change the price to see both counts move. Open “Edit household segments” to use your own buyer groups.' : 'Edit the household groups below; keep people with different finances or buying intentions in separate rows.'} Counts are scenario estimates, not forecasts of sales.</p>}
+      {page === 'buyer' && beginner ? <BeginnerBuyer key={guideVersion} product={product} setProduct={setProduct} household={household} setHousehold={setHousehold} delay={delay} setDelay={setDelay} errors={errors} projection={projection} goal={goal} reset={reset}
+        advanced={<><ProductInputs product={product} setProduct={setProduct} errors={errors} financingOnly /><PurchaseTimingInputs delay={delay} setDelay={setDelay} errors={errors} advancedOnly /><Section title="Ready to buy?"><p className="india-note">These factors affect effective demand, separately from your financial capacity.</p><Gates household={household} onChange={setHousehold} /></Section></>} further={fullBuyerResults} /> : <><div className="india-workspace"><aside className="inputs india-inputs" aria-label="Calculator assumptions"><div className="inputs-heading"><h2>Your assumptions</h2><button type="button" className="text-button" onClick={reset}>Reset examples</button></div>
         <ProductInputs product={product} setProduct={setProduct} errors={errors}>{page === 'buyer' && <PurchaseTimingInputs delay={delay} setDelay={setDelay} errors={errors} />}</ProductInputs>{page === 'buyer' && <HouseholdInputs household={household} setHousehold={setHousehold} errors={errors} />}
         <p className="india-input-footer">Valid inputs update results immediately.</p>
       </aside><div className="india-results">
         {errors.length > 0 && <div className="validation india-validation" role="alert"><strong>Check your assumptions</strong><ul>{errors.map((error, i) => <li key={`${error.path}-${i}`}>{error.message}</li>)}</ul><p>Results are withheld until all inputs are valid.</p></div>}
-        {capacity && projection && <HouseholdResults product={product} household={household} delay={delay} capacity={capacity} projection={projection} />}
+        {fullBuyerResults}
         {demand && <><DemandResults product={product} demand={demand} />{points && <CapacityChart points={points} selectedPrice={product.price} />}<SegmentResults demand={demand} /><YieldInsight product={product} /></>}
         {page === 'market' && <details className="india-market-editor"><summary>Edit household segments</summary>{editor}</details>}
       </div></div>
-      {page === 'builders' && editor}
+      {page === 'builders' && editor}</>}
       <KnowledgeNotes /><footer><span>Home / Rent · India</span><p>A purchasing-capacity scenario under your assumptions.</p></footer>
     </main></div>
 }

@@ -1,0 +1,25 @@
+/* Warm paper by day; muted forest at night. Shared tokens cover inputs,
+   numerical results, tables and charts across all calculators. */
+:root{
+  color-scheme:light;
+  --page-bg:#f5f5ef;--ink:#283b33;--surface:#fffefa;--line:#e3e5dc;
+  --green:#2c5745;--muted:#68735f;--tint:#eff3e8;--focus:#6e9771;
+  --accent-hover:#1f4232;--on-accent:#fff;--result-bg:#274b3d;
+  --error:#914c35;--error-bg:#f8ece5;
+  --chart-green:#346855;--chart-brown:#a1957f;--chart-cost:#786947;
+  --chart-soft:#698978;--chart-capable:#8a9777;--chart-effective:#2c5745;
+}
+:root[data-theme=dark]{
+  color-scheme:dark;
+  --page-bg:#121b17;--ink:#e6ede5;--surface:#1a2720;--line:#35483b;
+  --green:#a5d9b9;--muted:#b0bdac;--tint:#25392e;--focus:#b9dbaa;
+  --accent-hover:#bce7c9;--on-accent:#14251c;--result-bg:#234235;
+  --error:#f0b49c;--error-bg:#412c25;
+  --chart-green:#a5d9b9;--chart-brown:#d5c09a;--chart-cost:#dbc19a;
+  --chart-soft:#86bda3;--chart-capable:#c3d7a8;--chart-effective:#a5d9b9;
+}
+.theme-control{display:flex;align-items:center;gap:9px;font-size:11px;color:var(--muted);white-space:nowrap}
+.theme-control select{min-height:38px;min-width:98px;padding:8px 10px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:5px;font-size:12px;cursor:pointer}
+.site-header{height:auto;min-height:84px;flex-wrap:wrap;gap:18px;padding-top:14px;padding-bottom:14px}
+@media(max-width:820px){.site-header{min-height:70px}}
+@media(max-width:600px){.theme-control>span{display:none}.site-header{gap:12px 16px}.theme-control select{min-width:86px;min-height:38px;font-size:11px}}

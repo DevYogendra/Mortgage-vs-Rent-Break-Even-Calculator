@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import IndiaApp from './IndiaApp.tsx'
 import type { IndiaPage } from './IndiaApp.tsx'
+import './themes.css'
 
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 const indiaRoutes: Record<string, IndiaPage> = {

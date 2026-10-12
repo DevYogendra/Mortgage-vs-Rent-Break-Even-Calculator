@@ -32,12 +32,12 @@ export default function PurchaseDelayChart({ projection, product, household, del
   const month = selectedMonth === null ? months : Math.min(selectedMonth, months)
   const point = points[month]
   const series: Series[] = view === 'balances' ? [
-    { label: 'House price', color: '#786947', value: p => p.price },
-    { label: 'Available purchase cash', color: '#2c5745', dash: '7 4', value: p => p.capacity.availableCash },
+    { label: 'House price', color: 'var(--chart-cost)', value: p => p.price },
+    { label: 'Available purchase cash', color: 'var(--chart-effective)', dash: '7 4', value: p => p.capacity.availableCash },
   ] : [
-    { label: 'Extra purchase cost', color: '#786947', value: p => p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost },
-    { label: 'Added purchase cash', color: '#2c5745', value: p => p.capacity.availableCash - current.capacity.availableCash },
-    { label: 'Net purchase progress', color: '#698978', dash: '5 5', value: p => (p.capacity.availableCash - current.capacity.availableCash) - (p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost) },
+    { label: 'Extra purchase cost', color: 'var(--chart-cost)', value: p => p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost },
+    { label: 'Added purchase cash', color: 'var(--chart-effective)', value: p => p.capacity.availableCash - current.capacity.availableCash },
+    { label: 'Net purchase progress', color: 'var(--chart-soft)', dash: '5 5', value: p => (p.capacity.availableCash - current.capacity.availableCash) - (p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost) },
   ]
   const values = points.flatMap(p => series.map(s => s.value(p)))
   const minValue = Math.min(0, ...values), maxValue = Math.max(1, ...values)

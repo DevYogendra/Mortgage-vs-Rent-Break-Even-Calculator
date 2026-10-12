@@ -7,12 +7,12 @@ const pct = (n: number) => `${number(n * 100)}%`
 const shortMoney = (n: number) => Math.abs(n) >= 1e7 ? `₹${number(n / 1e7)} cr` : Math.abs(n) >= 1e5 ? `₹${number(n / 1e5)} L` : money(n)
 const monthLabel = (point: PurchaseDelayPoint) => `Month ${Math.round(point.years * 12)} · ${number(point.years)} years`
 
-export function PurchaseDelayBars({ current, point }: { current: PurchaseDelayPoint; point: PurchaseDelayPoint }) {
+export function PurchaseDelayBars({ current, point, interactive = true }: { current: PurchaseDelayPoint; point: PurchaseDelayPoint; interactive?: boolean }) {
   const id = useId()
   const priceChange = point.price - current.price
   const bars = [
-    { label: 'New savings from income', value: point.savingsContributions, color: '#2c5745' },
-    { label: 'House-price change', value: priceChange, color: '#786947' },
+    { label: 'New savings from income', value: point.savingsContributions, color: 'var(--chart-effective)' },
+    { label: 'House-price change', value: priceChange, color: 'var(--chart-cost)' },
   ]
   const minValue = Math.min(0, ...bars.map(b => b.value)), maxValue = Math.max(1, ...bars.map(b => b.value))
   const targetStep = (maxValue - minValue) / 4, magnitude = 10 ** Math.floor(Math.log10(targetStep))
@@ -22,7 +22,7 @@ export function PurchaseDelayBars({ current, point }: { current: PurchaseDelayPo
   const position = (value: number) => (value - min) / (max - min) * 100
   return <section className="delay-bar-section" aria-labelledby={`${id}-heading`}>
     <div className="section-label"><h3 id={`${id}-heading`}>Savings vs house-price increase</h3><span>{monthLabel(point)}</span></div>
-    <p className="india-note">Cumulative amounts since today. Move the month slider above to update both charts.</p>
+    <p className="india-note">Cumulative amounts since today. {interactive ? 'Move the month slider above to update both charts.' : 'Change the waiting period above to update these amounts. Explore further to inspect individual months.'}</p>
     <div className="delay-bars" role="img" aria-label={`Savings versus house-price change at month ${Math.round(point.years * 12)}: new savings from income ${money(point.savingsContributions)}; house-price change ${money(priceChange)}.`}>
       {bars.map(bar => <div className="delay-bar-row" key={bar.label}>
         <div className="delay-bar-label"><span>{bar.label}</span><strong>{money(bar.value)}</strong></div>

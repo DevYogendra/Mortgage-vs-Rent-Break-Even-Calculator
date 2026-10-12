@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Calculate the annual home appreciation required to break even with renting and investing. Compare monthly costs, holding periods, and ending wealth." />
     <meta name="theme-color" content="#274b3d" />
+    <script>
+      // Apply the saved preference before the page paints.
+      (() => {
+        let preference = 'system'
+        try {
+          const saved = localStorage.getItem('home-rent-theme')
+          if (saved === 'light' || saved === 'dark') preference = saved
+        } catch {}
+        const theme = preference === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : preference
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
     <title>Home / Rent — Break-Even Calculator</title>
   </head>
   <body>

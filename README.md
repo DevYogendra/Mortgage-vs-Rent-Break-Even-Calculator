@@ -32,7 +32,9 @@ Use **India calculators** in the header to open three linked tools:
 - **`/india/market` — Price vs buyer capacity:** exact-price segment results and a keyboard-accessible chart of financially capable and effective households at 21 prices from 50% to 150% of the entered price. The chart also has a data-table view.
 - **`/india/builders` — Builder / sales demand:** editable representative household groups, financial tiers, effective-demand counts, and exclusion reasons.
 
-All money is nominal INR, displayed with Indian digit grouping. Enter amounts in rupees (₹1 crore = 1,00,00,000). Defaults, household counts, interest rates, purchase costs, EMI limits, and loan-to-value limits are **illustrative, editable examples**, not sourced city estimates or lending rules. Each segment represents households with identical finances and demand factors; split differing profiles into separate, non-overlapping groups.
+The homebuyer page opens in **Beginner view**: choose affordability or waiting, then follow three steps for the home, household finances, and result. Home prices and purchase funds use lakh; income and savings use monthly rupees. Monthly savings convert to the shared engine's income share, remain unchanged when income is edited, and must not exceed take-home income. Zero income sets new income savings to zero. A plain-language answer and savings-versus-price bars come first; calculations and the interactive timeline are available through disclosures. **Advanced settings** exposes financing, income growth, savings return, and demand factors. **Full calculator** keeps all original inputs and results; switching views preserves financial assumptions, while reset and reload restore examples. The goal links also lead to the market and builder tools, which explain capable versus effective buyers.
+
+All money is nominal INR, displayed with Indian digit grouping. Full-calculator amounts use rupees (₹1 crore = 1,00,00,000); beginner money fields explicitly label lakh where used. Defaults, household counts, interest rates, purchase costs, EMI limits, and loan-to-value limits are **illustrative, editable examples**, not sourced city estimates or lending rules. Each segment represents households with identical finances and demand factors; split differing profiles into separate, non-overlapping groups.
 
 The shared model in `src/india.ts` reuses the existing EMI calculation:
 
@@ -56,6 +58,8 @@ The same month slider also drives a horizontal bar chart comparing new income sa
 Cloudflare Workers uses the SPA fallback configured in `wrangler.jsonc`; Cloudflare Pages uses its default SPA fallback because this app has no top-level `404.html`. No `_redirects` file is needed. Other static hosts must serve `index.html` for these paths so direct links and refresh work.
 
 ## US calculator features
+
+All calculators have a **Theme** selector in the header: **Light**, **Dark**, or **System**. System follows the device appearance, including changes while the page is open. Only this display preference is saved in browser storage and shared across calculator pages; financial inputs still reset on reload. Theme selection continues to work when storage is blocked, without persistence.
 
 - House price, dollar/percentage down payment, and holding periods up to 50 years in whole months.
 - Fixed-rate mortgage with custom term, cash purchases, zero interest, extra principal, and configurable PMI cancellation.

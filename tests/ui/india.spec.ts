@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test'
+import { openFullIndia } from './fullIndia'
 
 test('links all calculators, supports direct links, refresh and browser history', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
+  await openFullIndia(page)
   await page.getByRole('link', { name: 'India calculators' }).click()
   await expect(page).toHaveURL(/\/india$/)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Homebuyer capacity')
@@ -13,6 +15,7 @@ test('links all calculators, supports direct links, refresh and browser history'
   await nav.getByRole('link', { name: 'Price vs buyer capacity' }).click()
   await expect(page).toHaveURL(/\/india\/market$/)
   await page.reload()
+  await openFullIndia(page)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Price vs buyer capacity')
   await nav.getByRole('link', { name: 'Builder / sales demand' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Builder / sales demand')
@@ -27,6 +30,7 @@ test('links all calculators, supports direct links, refresh and browser history'
 
 test('homebuyer example reproduces the income burden and separates demand gates', async ({ page }) => {
   await page.goto('/india')
+  await openFullIndia(page)
   await expect(page.locator('.india-result')).toContainText('Tier 2')
   await expect(page.locator('.india-result')).toContainText('Effective demand: Yes')
   await expect(page.locator('.india-results')).toContainText('₹1,10,50,000')
@@ -53,6 +57,7 @@ test('homebuyer example reproduces the income burden and separates demand gates'
 
 test('shows cash and EMI gaps immediately and withholds invalid results', async ({ page }) => {
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Liquid purchase funds', { exact: true }).fill('4000000')
   await expect(page.locator('.india-result')).toContainText('Tier 3')
   await expect(page.locator('.india-reconciliation')).toContainText('₹13,00,000')
@@ -74,6 +79,7 @@ test('shows cash and EMI gaps immediately and withholds invalid results', async 
 
 test('zero income cash buyers and zero savings have unavailable ratios', async ({ page }) => {
   await page.goto('/india/')
+  await openFullIndia(page)
   await page.getByLabel('Liquid purchase funds', { exact: true }).fill('30000000')
   await page.getByLabel('Annual after-tax income', { exact: true }).fill('0')
   await expect(page.locator('.india-result')).toContainText('Tier 1')
@@ -87,6 +93,7 @@ test('zero income cash buyers and zero savings have unavailable ratios', async (
 
 test('builder segments update counts and gates, and can be added, renamed and removed', async ({ page }) => {
   await page.goto('/india/builders')
+  await openFullIndia(page)
   await expect(page.locator('.india-result h2')).toContainText('350')
   await expect(page.locator('.india-segment-results tbody tr')).toHaveCount(3)
   await page.getByLabel('Household count — Income-backed example', { exact: true }).fill('300')
@@ -109,6 +116,7 @@ test('builder segments update counts and gates, and can be added, renamed and re
 
 test('invalid segment inputs clear dependent results and removing the row restores them', async ({ page }) => {
   await page.goto('/india/builders')
+  await openFullIndia(page)
   await page.getByLabel('Household count — Income-backed example', { exact: true }).fill('1.5')
   await expect(page.getByRole('alert')).toContainText('whole number')
   await expect(page.locator('.india-result')).toHaveCount(0)
@@ -123,6 +131,7 @@ test('invalid segment inputs clear dependent results and removing the row restor
 
 test('empty segments produce a zero pool without errors', async ({ page }) => {
   await page.goto('/india/builders')
+  await openFullIndia(page)
   for (const name of ['Wealth-backed example', 'Income-backed example', 'Constrained example']) {
     await page.getByRole('button', { name: `Remove ${name}`, exact: true }).click()
   }
@@ -135,6 +144,7 @@ test('empty segments produce a zero pool without errors', async ({ page }) => {
 
 test('market chart is keyboard accessible and reflects exact-price counts and demand gates', async ({ page }) => {
   await page.goto('/india/market')
+  await openFullIndia(page)
   const chart = page.getByRole('group', { name: 'Household capacity by property price', exact: true })
   const points = chart.getByRole('button')
   await expect(points).toHaveCount(21)
@@ -161,6 +171,7 @@ test('market and builder pages agree with the same edited scenarios', async ({ p
   const results: string[] = []
   for (const path of ['/india/market', '/india/builders']) {
     await page.goto(path)
+    await openFullIndia(page)
     if (path.endsWith('market')) await page.getByText('Edit household segments', { exact: true }).click()
     await page.getByLabel('Property price', { exact: true }).fill('18000000')
     await page.getByLabel('Household count — Wealth-backed example', { exact: true }).fill('123')
@@ -172,8 +183,10 @@ test('market and builder pages agree with the same edited scenarios', async ({ p
 
 test('inputs reset on reload and the knowledge-card context is available', async ({ page }) => {
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Property price', { exact: true }).fill('16000000')
   await page.reload()
+  await openFullIndia(page)
   await expect(page.getByLabel('Property price', { exact: true })).toHaveValue('15000000')
   await page.getByText('Housing need ≠ effective demand', { exact: false }).last().click()
   await expect(page.getByRole('heading', { name: 'Why a low yield may coexist with high prices' })).toBeVisible()
@@ -183,6 +196,7 @@ test('purchase delay compares current and future prices, savings, EMIs and tiers
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/india')
+  await openFullIndia(page)
   await expect(page.getByLabel('Years before purchase', { exact: true })).toHaveValue('0')
   await expect(page.locator('.india-delay')).toContainText('Set “Years before purchase”')
   await page.getByLabel('Annual property appreciation', { exact: true }).fill('10')
@@ -214,6 +228,7 @@ test('purchase delay compares current and future prices, savings, EMIs and tiers
 
 test('invalid delay settings and projected values withhold results until corrected', async ({ page }) => {
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Years before purchase', { exact: true }).fill('-1')
   await expect(page.getByRole('alert')).toContainText('Years before purchase')
   await expect(page.getByLabel('Years before purchase', { exact: true })).toHaveAttribute('aria-invalid', 'true')
@@ -231,12 +246,14 @@ test('invalid delay settings and projected values withhold results until correct
   await expect(page.getByRole('alert')).toHaveCount(0)
   await page.getByLabel('Years before purchase', { exact: true }).fill('2')
   await page.reload()
+  await openFullIndia(page)
   await expect(page.getByLabel('Years before purchase', { exact: true })).toHaveValue('0')
 })
 
 test('delayed purchase comparisons fit mobile and support keyboard scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Years before purchase', { exact: true }).fill('5')
   await expect(page.locator('.india-delay-answer')).toContainText('After 5 years')
   const comparison = page.getByRole('region', { name: 'Buy now versus delayed purchase', exact: true })
@@ -254,6 +271,7 @@ test('delayed purchase comparisons fit mobile and support keyboard scrolling', a
 
 test('interactive delay chart reconciles costs and savings and supports monthly keyboard inspection', async ({ page }) => {
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Years before purchase', { exact: true }).fill('3')
   const chart = page.locator('.india-delay-chart')
   const inspector = page.getByRole('region', { name: 'Selected month amounts', exact: true })
@@ -302,6 +320,7 @@ test('interactive delay chart reconciles costs and savings and supports monthly 
 test('delay chart handles zero savings, falling prices, losses and touch inspection on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Years before purchase', { exact: true }).fill('2')
   await page.getByLabel('Annual property appreciation', { exact: true }).fill('-10')
   await page.getByLabel('Annual savings share of income', { exact: true }).fill('0')
@@ -329,6 +348,7 @@ test('delay chart handles zero savings, falling prices, losses and touch inspect
 
 test('cost-of-waiting summary exposes savings erosion and negative net progress', async ({ page }) => {
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Years before purchase', { exact: true }).fill('5')
   const chart = page.locator('.india-delay-chart')
   const pressure = page.getByRole('region', { name: 'Cost of waiting', exact: true })
@@ -358,6 +378,7 @@ test('cost-of-waiting summary exposes savings erosion and negative net progress'
 
 test('savings bar chart and detailed calculations follow the selected month and income growth', async ({ page }) => {
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Years before purchase', { exact: true }).fill('5')
   const bars = page.getByRole('img', { name: /^Savings versus house-price change at month 60:/ })
   await expect(bars).toBeVisible()
@@ -397,6 +418,7 @@ test('savings bar chart and detailed calculations follow the selected month and 
 test('savings bars handle declines and zero savings; calculation tables scroll on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/india')
+  await openFullIndia(page)
   await page.getByLabel('Years before purchase', { exact: true }).fill('5')
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
@@ -432,6 +454,7 @@ test('India pages fit mobile, retain readable scrollable tables, and render desk
   await page.setViewportSize({ width: 390, height: 844 })
   for (const [path, name] of [['/india', 'buyer'], ['/india/market', 'market'], ['/india/builders', 'builders']]) {
     await page.goto(path)
+    await openFullIndia(page)
     await expect(page.locator('.india-result')).toBeVisible()
     await page.screenshot({ path: `artifacts/india-${name}-mobile.png`, fullPage: true, animations: 'disabled' })
     const layout = await page.evaluate(() => ({
@@ -443,11 +466,13 @@ test('India pages fit mobile, retain readable scrollable tables, and render desk
     expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.width)
   }
   await page.goto('/')
+  await openFullIndia(page)
   await expect(page.getByRole('link', { name: 'India calculators' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.setViewportSize({ width: 1440, height: 1050 })
   for (const [path, name] of [['/india', 'buyer'], ['/india/market', 'market'], ['/india/builders', 'builders']]) {
     await page.goto(path)
+    await openFullIndia(page)
     await page.screenshot({ path: `artifacts/india-${name}-desktop.png`, fullPage: true, animations: 'disabled' })
   }
   await page.emulateMedia({ reducedMotion: 'reduce' })
