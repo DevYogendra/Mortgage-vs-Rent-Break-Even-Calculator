@@ -1,8 +1,8 @@
 import { useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  evaluateDemand, evaluatePurchaseDelay, indiaHouseholdDefaults, indiaProductDefaults,
-  indiaSegmentDefaults, priceCapacityCurve, purchaseDelayDefaults, validateProduct, validatePurchaseDelay, validateSegments,
+  evaluateDemand, evaluateHomebuyer, indiaHouseholdDefaults, indiaProductDefaults,
+  indiaSegmentDefaults, priceCapacityCurve, purchaseDelayDefaults, validateProduct, validateHomebuyer, validateSegments,
 } from './india'
 import type {
   DemandResult, Exclusion, FieldError, HouseholdSegment,
@@ -33,7 +33,7 @@ const reasonLabels: Record<Exclusion, string> = {
 }
 
 function ProductInputs({ product, setProduct, errors }: { product: IndiaProduct; setProduct: (p: IndiaProduct) => void; errors: FieldError[] }) {
-  const field = (key: keyof IndiaProduct, label: string, unit: string, rate = false) => <NumberField path={key} label={label} value={product[key]} onChange={value => setProduct({ ...product, [key]: value })} rate={rate} unit={unit} errors={errors} />
+  const field = (key: keyof IndiaProduct, label: string, unit: string, rate = false) => <NumberField path={key} label={label} value={product[key] ?? 0} onChange={value => setProduct({ ...product, [key]: value })} rate={rate} unit={unit} errors={errors} />
   return <div className="compact-input-grid">
     <NumberField path="price" label="Property price" value={product.price / 1e7} onChange={value => setProduct({ ...product, price: value * 1e7 })} unit="₹ Cr" errors={errors} />
     {field('monthlyRent', 'Comparable monthly rent', '₹/mo')}{field('appreciation', 'Annual property appreciation', '%/yr', true)}
@@ -126,9 +126,9 @@ function KnowledgeNotes() {
 }
 
 export default function IndiaApp({ page }: { page: IndiaPage }) {
-  const [product, setProduct] = useState<IndiaProduct>(() => structuredClone(indiaProductDefaults))
+  const [product, setProduct] = useState<IndiaProduct>(() => ({ ...structuredClone(indiaProductDefaults), maxLtv: page === 'buyer' ? .8 : indiaProductDefaults.maxLtv }))
   const [household, setHousehold] = useState<IndiaHousehold>(() => structuredClone(indiaHouseholdDefaults))
-  const [delay, setDelay] = useState<PurchaseDelay>(() => ({ ...purchaseDelayDefaults, years: 5, monthlySavings: 62500 }))
+  const [delay, setDelay] = useState<PurchaseDelay>(() => ({ ...purchaseDelayDefaults, years: 5, rentGrowth: .03, waitingEnabled: new URLSearchParams(window.location.search).get('goal') === 'wait' }))
   const [guideVersion, setGuideVersion] = useState(0)
   const [segments, setSegments] = useState<HouseholdSegment[]>(() => structuredClone(indiaSegmentDefaults))
   const info = pageInfo[page]
@@ -136,14 +136,14 @@ export default function IndiaApp({ page }: { page: IndiaPage }) {
     document.title = `Home / Rent — India ${info.title}`
     document.querySelector('meta[name="description"]')?.setAttribute('content', info.description)
   }, [info])
-  const errors = page === 'buyer' ? validatePurchaseDelay(product, household, delay) : [...validateProduct(product), ...validateSegments(segments)]
-  const projection = !errors.length && page === 'buyer' ? evaluatePurchaseDelay(product, household, delay) : null
+  const errors = page === 'buyer' ? validateHomebuyer(product, household, delay) : [...validateProduct(product), ...validateSegments(segments)]
+  const projection = !errors.length && page === 'buyer' ? evaluateHomebuyer(product, household, delay) : null
   const demand = !errors.length && page !== 'buyer' ? evaluateDemand(product, segments) : null
   const points = demand && page === 'market' ? priceCapacityCurve(product, segments) : null
   const editor = <SegmentEditor key={guideVersion} segments={segments} setSegments={setSegments} errors={errors} />
   function reset() {
-    setProduct(structuredClone(indiaProductDefaults)); setHousehold(structuredClone(indiaHouseholdDefaults)); setSegments(structuredClone(indiaSegmentDefaults))
-    setDelay({ ...purchaseDelayDefaults, years: 5, monthlySavings: 62500 })
+    setProduct({ ...structuredClone(indiaProductDefaults), maxLtv: page === 'buyer' ? .8 : indiaProductDefaults.maxLtv }); setHousehold(structuredClone(indiaHouseholdDefaults)); setSegments(structuredClone(indiaSegmentDefaults))
+    setDelay({ ...purchaseDelayDefaults, years: 5, rentGrowth: .03, waitingEnabled: false })
     setGuideVersion(v => v + 1)
   }
   return <div className={`india-app${page === 'buyer' ? ' india-homebuyer' : ' india-business'}`}><header className="site-header india-header"><a href="/" className="brand">Home<span className="brand-light"> / </span>Rent</a><span className="header-description">India · Effective demand</span><a className="india-us-link" href="/">US calculator ↗</a><ThemeSelector /></header>

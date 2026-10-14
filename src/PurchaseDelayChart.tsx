@@ -120,14 +120,14 @@ export default function PurchaseDelayChart({ projection, product, household, del
     </div>
   </>
   const notes = <>
-    <p className="india-note">“Savings set aside” uses your entered savings share. Net purchase progress measures cash growth after allowing for the change in purchase cost; it is not a buy-versus-rent wealth return. Higher costs can offset over 100% of new savings. This does not mean those savings have been spent. It does not assume that avoiding a purchase saves the full EMI: you still pay rent, and owning would have other costs. Extra purchase cost is the change in the complete price plus upfront costs; the whole increase is not an upfront cash requirement.</p>
+    <p className="india-note">{delay.rentGrowth !== undefined ? `Savings set aside are the positive mortgage–rent differences, adjusted for rent increases${delay.waitingEnabled ? ', plus 90% of income increases while waiting' : ''}. Mortgage–rent deposits stop after the reference loan term.` : '“Savings set aside” uses your entered savings share.'} Net purchase progress measures cash growth after allowing for the change in purchase cost; it is not a buy-versus-rent wealth return. Higher costs can offset over 100% of new savings. This does not mean those savings have been spent. Rent is still paid, and owning would have other costs. Extra purchase cost is the change in the complete price plus upfront costs; the whole increase is not an upfront cash requirement.</p>
   </>
   const data = <>
     <details className="india-chart-data"><summary>View monthly savings and price data</summary><div className="table-scroll" role="region" aria-label="Monthly savings and price data" tabIndex={0}><table><caption>Monthly checkpoints; additional costs and cash are measured from today.</caption><thead><tr><th scope="col">Month</th><th scope="col">House price</th><th scope="col">Extra purchase cost</th><th scope="col">Savings set aside</th><th scope="col">Investment gain / loss</th><th scope="col">Available purchase cash</th><th scope="col">Added purchase cash</th><th scope="col">Net purchase progress</th><th scope="col">Change in required loan</th></tr></thead><tbody>{points.map((p, i) => <tr key={i}><th scope="row">{i}</th><td>{money(p.price)}</td><td>{money(p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost)}</td><td>{money(p.savingsContributions)}</td><td>{money(p.investmentGrowth)}</td><td>{money(p.capacity.availableCash)}</td><td>{money(p.capacity.availableCash - current.capacity.availableCash)}</td><td>{money((p.capacity.availableCash - current.capacity.availableCash) - (p.capacity.totalPurchaseCost - current.capacity.totalPurchaseCost))}</td><td>{money(p.capacity.requiredLoan - current.capacity.requiredLoan)}</td></tr>)}</tbody></table></div></details>
   </>
   if (presentation === 'compact') return <section className="india-delay-chart compact-delay" aria-label="Savings and house-price comparison">
     {control}
-    <PurchaseDelayBars current={current} point={point} />
+    <PurchaseDelayBars current={current} point={point} automaticSavings={delay.rentGrowth !== undefined} />
     <details className="compact-disclosure"><summary>Explore monthly timeline</summary>
       {views}{plot}{pressure}{inspector}{notes}{data}
     </details>
@@ -142,7 +142,7 @@ export default function PurchaseDelayChart({ projection, product, household, del
     {pressure}
     {plot}
     {control}
-    <PurchaseDelayBars current={current} point={point} />
+    <PurchaseDelayBars current={current} point={point} automaticSavings={delay.rentGrowth !== undefined} />
     {inspector}
     <PurchaseDelayCalculations current={current} point={point} product={product} household={household} delay={delay} />
     {notes}

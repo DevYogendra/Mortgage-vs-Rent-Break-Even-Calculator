@@ -7,11 +7,11 @@ const pct = (n: number) => `${number(n * 100)}%`
 const shortMoney = (n: number) => Math.abs(n) >= 1e7 ? `₹${number(n / 1e7)} cr` : Math.abs(n) >= 1e5 ? `₹${number(n / 1e5)} L` : money(n)
 const monthLabel = (point: PurchaseDelayPoint) => `Month ${Math.round(point.years * 12)} · ${number(point.years)} years`
 
-export function PurchaseDelayBars({ current, point, interactive = true }: { current: PurchaseDelayPoint; point: PurchaseDelayPoint; interactive?: boolean }) {
+export function PurchaseDelayBars({ current, point, interactive = true, automaticSavings = false }: { current: PurchaseDelayPoint; point: PurchaseDelayPoint; interactive?: boolean; automaticSavings?: boolean }) {
   const id = useId()
   const priceChange = point.price - current.price
   const bars = [
-    { label: 'New savings from income', value: point.savingsContributions, color: 'var(--chart-effective)' },
+    { label: automaticSavings ? 'Savings invested while waiting' : 'New savings from income', value: point.savingsContributions, color: 'var(--chart-effective)' },
     { label: 'House-price change', value: priceChange, color: 'var(--chart-cost)' },
   ]
   const minValue = Math.min(0, ...bars.map(b => b.value)), maxValue = Math.max(1, ...bars.map(b => b.value))
@@ -30,7 +30,7 @@ export function PurchaseDelayBars({ current, point, interactive = true }: { curr
       </div>)}
       <div className="delay-bar-axis" aria-hidden="true">{ticks.map((tick, i) => <span key={tick} style={{ left: `${position(tick)}%`, transform: i === 0 ? 'none' : i === ticks.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{shortMoney(tick)}</span>)}</div>
     </div>
-    <p className="india-note">Savings are new income contributions after rent and living expenses. The house-price bar shows the property-price change; investment returns and upfront charges enter the detailed calculation below.</p>
+    <p className="india-note">{automaticSavings ? 'Savings include positive mortgage–rent differences, adjusted for annual rent increases, plus any income increases invested while waiting.' : 'Savings are new income contributions after rent and living expenses.'} The house-price bar shows the property-price change; investment returns and upfront charges enter the detailed calculation below.</p>
   </section>
 }
 
@@ -46,22 +46,27 @@ export function PurchaseDelayCalculations({ current, point, product, household, 
   const netProgress = addedCash - extraCost
   const offsetPercent = point.savingsContributions > 0 ? Math.max(0, extraCost) / point.savingsContributions * 100 : null
   const monthlyReturn = Math.expm1(Math.log1p(delay.savingsReturn) / 12)
-  const fixedSavings = delay.monthlySavings !== undefined
-  const startingMonthlySavings = delay.monthlySavings ?? household.annualIncome * household.savingsRate / 12
+  const automaticSavings = delay.rentGrowth !== undefined
+  const fixedSavings = delay.monthlySavings !== undefined || automaticSavings
+  const startingMonthlySavings = automaticSavings ? Math.max(0, current.capacity.requiredEmi - product.monthlyRent) : delay.monthlySavings ?? household.annualIncome * household.savingsRate / 12
+  const loanMonths = Math.round(product.termYears * 12)
   const savingsPeriods = Array.from({ length: Math.ceil(months / 12) }, (_, year) => {
     const count = Math.min(12, months - year * 12)
     const income = household.annualIncome * (1 + delay.incomeGrowth) ** year
-    const monthly = delay.monthlySavings ?? income * household.savingsRate / 12
-    return { year: year + 1, count, income, monthly, total: monthly * count }
+    const rent = product.monthlyRent * (1 + (delay.rentGrowth ?? 0)) ** year
+    const monthly = automaticSavings ? Math.max(0, current.capacity.requiredEmi - rent) : delay.monthlySavings ?? income * household.savingsRate / 12
+    const activeMonths = automaticSavings ? Math.max(0, Math.min(count, loanMonths - year * 12)) : count
+    const incomeSavings = automaticSavings && delay.waitingEnabled ? .9 * Math.max(0, (income - household.annualIncome) / 12) : 0
+    return { year: year + 1, count, income, monthly, rent, activeMonths, incomeSavings, total: monthly * activeMonths + incomeSavings * count }
   })
   const rows: { label: string; formula: string; result: string }[] = [
-    { label: 'Starting purchase cash', formula: `${money(household.liquidFunds)} liquid purchase funds`, result: money(startingCash) },
+    { label: 'Starting purchase cash', formula: automaticSavings ? `${money(household.liquidFunds)} down payment + ${money(current.capacity.purchaseCosts)} upfront charges` : `${money(household.liquidFunds)} liquid purchase funds`, result: money(startingCash) },
     { label: 'House price at this month', formula: `${money(current.price)} × (1 + ${pct(product.appreciation)})^(${months} ÷ 12)`, result: money(point.price) },
     { label: 'House-price change', formula: `${money(point.price)} − ${money(current.price)}`, result: money(priceChange) },
-    { label: 'Extra upfront purchase costs', formula: `${money(priceChange)} × ${pct(product.purchaseCostRate)}`, result: money(feeChange) },
+    { label: 'Extra upfront purchase costs', formula: product.purchaseCostAmount === undefined ? `${money(priceChange)} × ${pct(product.purchaseCostRate)}` : `Fixed charges of ${money(product.purchaseCostAmount)}; no increase with home price`, result: money(feeChange) },
     { label: 'Extra total purchase cost', formula: `${money(priceChange)} price change + ${money(feeChange)} change in upfront costs`, result: money(extraCost) },
-    { label: 'Starting monthly savings', formula: fixedSavings ? `${money(startingMonthlySavings)} fixed monthly amount entered for waiting to buy` : `${money(household.annualIncome / 12)} monthly take-home income × ${pct(household.savingsRate)}`, result: money(startingMonthlySavings) },
-    { label: 'New savings from income', formula: fixedSavings || delay.incomeGrowth === 0 ? `${money(startingMonthlySavings)} per month × ${months} months` : `Sum of monthly savings over ${months} months; see contributions by year below`, result: money(point.savingsContributions) },
+    { label: 'Starting monthly savings', formula: automaticSavings ? `max(₹0, ${money(current.capacity.requiredEmi)} mortgage payment − ${money(product.monthlyRent)} rent)` : fixedSavings ? `${money(startingMonthlySavings)} fixed monthly amount entered for waiting to buy` : `${money(household.annualIncome / 12)} monthly take-home income × ${pct(household.savingsRate)}`, result: money(startingMonthlySavings) },
+    { label: automaticSavings ? 'Total savings invested' : 'New savings from income', formula: automaticSavings ? `Sum of positive monthly mortgage–rent differences over ${months} months${delay.waitingEnabled ? ' + 90% of income increases' : ''}, including rent increases and loan-term cutoff; see contributions by year` : fixedSavings || delay.incomeGrowth === 0 ? `${money(startingMonthlySavings)} per month × ${months} months` : `Sum of monthly savings over ${months} months; see contributions by year below`, result: money(point.savingsContributions) },
     { label: 'Investment gain / loss', formula: `${money(point.capacity.availableCash)} ending cash − ${money(startingCash)} starting cash − ${money(point.savingsContributions)} new savings`, result: money(point.investmentGrowth) },
     { label: 'Added purchase cash', formula: `${money(point.savingsContributions)} new savings + ${money(point.investmentGrowth)} investment gain / loss`, result: money(addedCash) },
     { label: 'Available purchase cash', formula: `${money(startingCash)} starting cash + ${money(addedCash)} added cash`, result: money(point.capacity.availableCash) },
@@ -73,6 +78,6 @@ export function PurchaseDelayCalculations({ current, point, product, household, 
     <div className="section-label"><h3 id={`${id}-heading`}>Detailed calculation</h3><span>{monthLabel(point)}</span></div>
     <div className="table-scroll" role="region" aria-label="Detailed waiting calculation" tabIndex={0}><table className="delay-calculation-table"><caption>Substituted values for the selected month. Displayed amounts are rounded to rupees; calculations retain full precision.</caption><thead><tr><th scope="col">Measure</th><th scope="col">Calculation</th><th scope="col">Result</th></tr></thead><tbody>{rows.map(row => <tr key={row.label}><th scope="row">{row.label}</th><td>{row.formula}</td><td>{row.result}</td></tr>)}</tbody></table></div>
     <p className="india-note">Entered annual savings return: <strong>{pct(delay.savingsReturn)} per year</strong>, after taxes and fees. For monthly compounding, the equivalent monthly rate = (1 + {pct(delay.savingsReturn)})^(1 ÷ 12) − 1 = <strong>{(monthlyReturn * 100).toLocaleString('en-IN', { maximumFractionDigits: 6 })}%</strong>. Twelve monthly growth factors compound to your entered annual rate. Each month, purchase cash = previous month’s cash × (1 + monthly rate) + that month’s savings. Deposits occur at month-end.</p>
-    <details className="delay-savings-periods"><summary>Savings contributions by year</summary><div className="table-scroll" role="region" aria-label="Savings contributions by year" tabIndex={0}><table><caption>{fixedSavings ? `Fixed savings of ${money(startingMonthlySavings)} per month; no progressive income increase is included.` : `Income increases on anniversaries. Annual savings share: ${pct(household.savingsRate)}.`} A partial final year includes only the months waited.</caption><thead><tr><th scope="col">Year of waiting</th>{!fixedSavings && <th scope="col">Annual after-tax income</th>}<th scope="col">Monthly calculation</th><th scope="col">Months saved</th><th scope="col">Savings contributed</th></tr></thead><tbody>{savingsPeriods.map(period => <tr key={period.year}><th scope="row">{period.year}</th>{!fixedSavings && <td>{money(period.income)}</td>}<td>{fixedSavings ? `${money(period.monthly)} per month × ${period.count} months` : `${money(period.income)} × ${pct(household.savingsRate)} ÷ 12 = ${money(period.monthly)}`}</td><td>{period.count}</td><td>{money(period.total)}</td></tr>)}</tbody><tfoot><tr><th scope="row" colSpan={fixedSavings ? 3 : 4}>Total new savings from income</th><td>{money(point.savingsContributions)}</td></tr></tfoot></table></div>{months === 0 && <p className="india-note">Today is the starting point; no monthly deposits have been made yet.</p>}</details>
+    <details className="delay-savings-periods"><summary>Savings contributions by year</summary><div className="table-scroll" role="region" aria-label="Savings contributions by year" tabIndex={0}><table><caption>{automaticSavings ? `Savings = max(₹0, mortgage payment − rent), with ${pct(delay.rentGrowth!)} annual rent increases.${delay.waitingEnabled ? ' Add 90% of take-home increases above today’s income; increments occur each anniversary.' : ''} Mortgage–rent deposits stop after the original loan term.` : fixedSavings ? `Fixed savings of ${money(startingMonthlySavings)} per month; no progressive income increase is included.` : `Income increases on anniversaries. Annual savings share: ${pct(household.savingsRate)}.`} A partial final year includes only the months waited.</caption><thead><tr><th scope="col">Year of waiting</th>{!fixedSavings && <th scope="col">Annual after-tax income</th>}<th scope="col">Savings calculation</th><th scope="col">Months in period</th><th scope="col">Savings contributed</th></tr></thead><tbody>{savingsPeriods.map(period => <tr key={period.year}><th scope="row">{period.year}</th>{!fixedSavings && <td>{money(period.income)}</td>}<td>{automaticSavings ? `max(₹0, ${money(current.capacity.requiredEmi)} mortgage − ${money(period.rent)} rent) × ${period.activeMonths} months${delay.waitingEnabled ? ` + ${money(period.incomeSavings)} income savings × ${period.count} months` : ''} = ${money(period.total)}` : fixedSavings ? `${money(period.monthly)} per month × ${period.count} months` : `${money(period.income)} × ${pct(household.savingsRate)} ÷ 12 = ${money(period.monthly)}`}</td><td>{period.count}</td><td>{money(period.total)}</td></tr>)}</tbody><tfoot><tr><th scope="row" colSpan={fixedSavings ? 3 : 4}>{automaticSavings ? 'Total savings invested' : 'Total new savings from income'}</th><td>{money(point.savingsContributions)}</td></tr></tfoot></table></div>{months === 0 && <p className="india-note">Today is the starting point; no monthly deposits have been made yet.</p>}</details>
   </section>
 }

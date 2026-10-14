@@ -1,4 +1,6 @@
 import { mortgagePayment } from './engine'
+import { evaluateRentOnly, validateRentOnly } from './rentOnly'
+import type { RentOnlyProjection } from './rentOnly'
 
 // Money is nominal INR; percentage inputs are decimal rates. These are examples,
 // not lender rules or city market estimates.
@@ -7,6 +9,7 @@ export interface IndiaProduct {
   monthlyRent: number
   appreciation: number
   purchaseCostRate: number
+  purchaseCostAmount?: number
   loanRate: number
   termYears: number
   maxLtv: number
@@ -73,6 +76,8 @@ export interface PurchaseDelay {
   incomeGrowth: number
   savingsReturn: number
   monthlySavings?: number
+  rentGrowth?: number
+  waitingEnabled?: boolean
 }
 export interface PurchaseDelayPoint {
   years: number
@@ -104,6 +109,8 @@ export const indiaSegmentDefaults: HouseholdSegment[] = [
   { ...indiaHouseholdDefaults, id: 'constrained', name: 'Constrained example', count: 650, annualIncome: 1200000, liquidFunds: 1500000 },
 ]
 
+export const purchaseCharges = (p: IndiaProduct) => p.purchaseCostAmount ?? p.price * p.purchaseCostRate
+
 function range(errors: FieldError[], path: string, label: string, value: number, min: number, max: number) {
   if (!Number.isFinite(value) || value < min || value > max) {
     errors.push({ path, message: `${label} must be between ${min.toLocaleString('en-IN')} and ${max.toLocaleString('en-IN')}.` })
@@ -115,9 +122,11 @@ export function validateProduct(p: IndiaProduct): FieldError[] {
   range(errors, 'monthlyRent', 'Monthly rent (₹)', p.monthlyRent, 0, 1e12)
   range(errors, 'appreciation', 'Annual appreciation (%)', p.appreciation * 100, -100, 100)
   for (const [key, label] of [
-    ['purchaseCostRate', 'Upfront purchase costs'], ['loanRate', 'Home-loan interest'],
+    ['loanRate', 'Home-loan interest'],
     ['maxLtv', 'Maximum loan-to-value'], ['maxEmiShare', 'Maximum total EMI share'],
   ] as const) range(errors, key, `${label} (%)`, p[key] * 100, 0, 100)
+  if (p.purchaseCostAmount === undefined) range(errors, 'purchaseCostRate', 'Upfront purchase costs (%)', p.purchaseCostRate * 100, 0, 100)
+  else range(errors, 'purchaseCostAmount', 'Upfront purchase costs (₹)', p.purchaseCostAmount, 0, 1e12)
   range(errors, 'termYears', 'Loan term (years)', p.termYears, 1 / 12, 50)
   if (Number.isFinite(p.termYears) && Math.abs(p.termYears * 12 - Math.round(p.termYears * 12)) > 1e-7) {
     errors.push({ path: 'termYears', message: 'Loan term must resolve to whole months (for example, 20 or 20.5 years).' })
@@ -152,7 +161,7 @@ function assertValid(errors: FieldError[]) {
 }
 function calculateCapacity(p: IndiaProduct, h: IndiaHousehold): HouseholdCapacity {
   const availableCash = h.liquidFunds
-  const purchaseCosts = p.price * p.purchaseCostRate
+  const purchaseCosts = purchaseCharges(p)
   const totalPurchaseCost = p.price + purchaseCosts
   const requiredLoan = Math.max(0, totalPurchaseCost - availableCash)
   const loanMonths = Math.round(p.termYears * 12)
@@ -177,10 +186,12 @@ function calculateCapacity(p: IndiaProduct, h: IndiaHousehold): HouseholdCapacit
   if (requiredLoan > 1e-6 && !h.creditAccess) exclusions.push('credit')
   if (!h.willingness) exclusions.push('willingness')
   // Both inequalities must hold: loan <= EMI-supported principal and loan <= P × LTV.
-  const cashFraction = 1 + p.purchaseCostRate - p.maxLtv
+  const costRate = p.purchaseCostAmount === undefined ? p.purchaseCostRate : 0
+  const fixedCosts = p.purchaseCostAmount ?? 0
+  const cashFraction = 1 + costRate - p.maxLtv
   const maxAffordablePrice = Math.min(
-    (availableCash + incomeLoanCapacity) / (1 + p.purchaseCostRate),
-    cashFraction > 0 ? availableCash / cashFraction : Infinity,
+    Math.max(0, availableCash + incomeLoanCapacity - fixedCosts) / (1 + costRate),
+    cashFraction > 0 ? Math.max(0, availableCash - fixedCosts) / cashFraction : availableCash >= fixedCosts ? Infinity : 0,
   )
   const annualSavings = h.annualIncome * h.savingsRate
   const appreciationAmount = p.price * p.appreciation
@@ -223,7 +234,7 @@ export function priceCapacityCurve(p: IndiaProduct, segments: HouseholdSegment[]
   })
 }
 
-function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDelay): {
+function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDelay, rental?: RentOnlyProjection): {
   errors: FieldError[]; projection: PurchaseDelayProjection | null;
 } {
   const errors = [...validateProduct(p), ...validateHousehold(h)]
@@ -272,9 +283,17 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
     // monthly amount; legacy share-based callers use anniversary income growth.
     // Investment growth precedes month-end saving.
     const annualIncome = h.annualIncome * (1 + delay.incomeGrowth) ** Math.floor((month - 1) / 12)
-    const contribution = delay.monthlySavings ?? annualIncome * h.savingsRate / 12
-    cash = cash * (1 + monthlyReturn) + contribution
-    savingsContributions += contribution
+    if (rental) {
+      const baseContribution = rental.monthlyTimeline[month].cumulativeInvested - rental.monthlyTimeline[month - 1].cumulativeInvested
+      const incomeContribution = delay.waitingEnabled ? .9 * Math.max(0, (annualIncome - h.annualIncome) / 12) : 0
+      const contribution = baseContribution + incomeContribution
+      cash = cash * (1 + monthlyReturn) + contribution
+      savingsContributions += contribution
+    } else {
+      const contribution = delay.monthlySavings ?? annualIncome * h.savingsRate / 12
+      cash = cash * (1 + monthlyReturn) + contribution
+      savingsContributions += contribution
+    }
     if (!snapshot(month)) return { errors, projection: null }
   }
   return { errors, projection: { current: timeline[0], delayed: timeline.at(-1)!, timeline, monthlyTimeline } }
@@ -284,6 +303,33 @@ export function validatePurchaseDelay(p: IndiaProduct, h: IndiaHousehold, delay:
 }
 export function evaluatePurchaseDelay(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDelay): PurchaseDelayProjection {
   const scenario = purchaseDelayScenario(p, h, delay)
+  assertValid(scenario.errors)
+  return scenario.projection!
+}
+
+function homebuyerScenario(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDelay) {
+  const waitingEnabled = delay.waitingEnabled ?? true
+  const effectiveHousehold = waitingEnabled ? h : { ...h, annualIncome: 0, savingsRate: 0, existingEmi: 0 }
+  const errors = [...validateProduct(p), ...validateHousehold(effectiveHousehold).map(e => e.path === 'liquidFunds' ? { ...e, message: e.message.replace('Liquid purchase funds', 'Down payment') } : e)]
+  if (waitingEnabled) range(errors, 'delay.incomeGrowth', 'Annual increment (%)', delay.incomeGrowth * 100, 0, 100)
+  if (Number.isFinite(h.liquidFunds) && h.liquidFunds > p.price) errors.push({ path: 'liquidFunds', message: 'Down payment cannot exceed the home price.' })
+  const initialCash = h.liquidFunds + purchaseCharges(p)
+  const inputs = { monthlyRent: p.monthlyRent, rentGrowth: delay.rentGrowth ?? 0, years: delay.years,
+    loanAmount: Math.max(0, p.price - h.liquidFunds), loanRate: p.loanRate, termYears: p.termYears,
+    investmentReturn: delay.savingsReturn, initialInvestment: initialCash }
+  errors.push(...validateRentOnly(inputs).map(e => ({ ...e, path: e.path === 'rentGrowth' ? 'delay.rentGrowth' : e.path })))
+  if (errors.length) return { errors, projection: null }
+  const rental = evaluateRentOnly({ ...inputs, years: waitingEnabled ? delay.years : 0 })
+  // Down payment goes towards the price; charges are separate, unfinanced cash.
+  // Both form the starting cash available when renting or waiting to purchase.
+  return purchaseDelayScenario(p, { ...effectiveHousehold, liquidFunds: initialCash }, { ...delay, years: waitingEnabled ? delay.years : 0, waitingEnabled, incomeGrowth: waitingEnabled ? delay.incomeGrowth : 0, monthlySavings: 0 }, rental)
+}
+
+export function validateHomebuyer(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDelay): FieldError[] {
+  return homebuyerScenario(p, h, delay).errors
+}
+export function evaluateHomebuyer(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDelay): PurchaseDelayProjection {
+  const scenario = homebuyerScenario(p, h, delay)
   assertValid(scenario.errors)
   return scenario.projection!
 }

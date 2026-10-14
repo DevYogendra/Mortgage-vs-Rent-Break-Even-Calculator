@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mortgagePayment } from '../src/engine'
 import {
-  evaluateDemand, evaluateHousehold, evaluatePurchaseDelay, indiaHouseholdDefaults, indiaProductDefaults,
+  evaluateDemand, evaluateHousehold, evaluatePurchaseDelay, evaluateHomebuyer, validateHomebuyer, purchaseCharges, indiaHouseholdDefaults, indiaProductDefaults,
   indiaSegmentDefaults, priceCapacityCurve, purchaseDelayDefaults, validateHousehold, validateProduct, validatePurchaseDelay, validateSegments,
 } from '../src/india'
 import type { HouseholdSegment, IndiaHousehold, IndiaProduct, PurchaseDelay } from '../src/india'
@@ -10,6 +10,87 @@ const product = (patch: Partial<IndiaProduct> = {}): IndiaProduct => ({ ...india
 const household = (patch: Partial<IndiaHousehold> = {}): IndiaHousehold => ({ ...indiaHouseholdDefaults, ...patch })
 const segment = (patch: Partial<HouseholdSegment> = {}): HouseholdSegment => ({ ...household(), id: 'test', name: 'Test households', count: 10, ...patch })
 const delay = (patch: Partial<PurchaseDelay> = {}): PurchaseDelay => ({ ...purchaseDelayDefaults, ...patch })
+
+describe('Down payment plus separate upfront charges and computed savings', () => {
+  const p = product({ price: 100000, purchaseCostRate: .1, loanRate: 0, termYears: 10, monthlyRent: 500, appreciation: .1 })
+  const h = household({ liquidFunds: 20000 })
+  const d = delay({ years: 1.5, rentGrowth: .1 })
+
+  it('uses the correct interest-bearing mortgage for the default home and down payment', () => {
+    const r = evaluateHomebuyer(product(), household(), delay({ rentGrowth: .03 }))
+    expect(r.current.capacity.requiredLoan).toBe(9500000)
+    // Independent annuity value for ₹95 lakh at 8.5% over 240 monthly payments.
+    expect(r.current.capacity.requiredEmi).toBeCloseTo(82443.2071697257, 6)
+  })
+
+  it('calculates a mortgage from price minus down payment, paying charges in addition', () => {
+    const r = evaluateHomebuyer(p, h, d)
+    expect(r.current.capacity.requiredLoan).toBe(80000)
+    expect(r.current.capacity.requiredEmi).toBeCloseTo(80000 / 120, 10)
+    expect(r.current.capacity.availableCash).toBe(30000)
+    expect(r.current.capacity.purchaseCosts).toBe(10000)
+    expect(r.current.capacity.totalPurchaseCost).toBe(110000)
+    const higherCharges = evaluateHomebuyer({ ...p, purchaseCostRate: .2 }, h, d)
+    expect(higherCharges.current.capacity.requiredLoan).toBe(80000)
+    expect(higherCharges.current.capacity.requiredEmi).toBe(r.current.capacity.requiredEmi)
+    expect(higherCharges.current.capacity.availableCash).toBe(40000)
+  })
+
+  it('computes savings from mortgage minus rising rent, using the same portfolio while waiting', () => {
+    const r = evaluateHomebuyer(p, h, d)
+    // 12 × (80000/120 − 500) + 6 × (80000/120 − 550).
+    expect(r.delayed.savingsContributions).toBeCloseTo(2700, 9)
+    expect(r.delayed.capacity.availableCash).toBeCloseTo(32700, 9)
+    expect(r.delayed.capacity.requiredLoan).toBeCloseTo(100000 * 1.1 ** 1.5 * 1.1 - 32700, 8)
+    const unrelatedIncome = evaluateHomebuyer(p, { ...h, annualIncome: 0, savingsRate: 0 }, { ...d, incomeGrowth: .5, monthlySavings: 99999 })
+    expect(unrelatedIncome.delayed.savingsContributions).toBe(r.delayed.savingsContributions)
+    expect(unrelatedIncome.delayed.capacity.requiredLoan).toBe(r.delayed.capacity.requiredLoan)
+  })
+
+  it('supports fixed rupee charges and scales only percentage charges with projected prices', () => {
+    const r = evaluateHomebuyer({ ...p, purchaseCostAmount: 10000 }, h, d)
+    expect(r.current.capacity.purchaseCosts).toBe(10000)
+    expect(r.delayed.capacity.purchaseCosts).toBe(10000)
+    expect(evaluateHomebuyer(p, h, d).delayed.capacity.purchaseCosts).toBeCloseTo(10000 * 1.1 ** 1.5, 8)
+    expect(purchaseCharges({ ...p, price: 200000, purchaseCostAmount: 10000 })).toBe(10000)
+    expect(purchaseCharges({ ...p, price: 200000 })).toBe(20000)
+    expect(validateProduct({ ...p, purchaseCostAmount: -1 }).some(e => e.path === 'purchaseCostAmount')).toBe(true)
+  })
+
+  it('includes avoided charges in starting investments and returns, without counting them as savings', () => {
+    const r = evaluateHomebuyer({ ...p, monthlyRent: 1000 }, h, delay({ years: 1, rentGrowth: .1, savingsReturn: .12 }))
+    expect(r.delayed.savingsContributions).toBe(0)
+    expect(r.delayed.investmentGrowth).toBeCloseTo(3600, 8)
+    expect(r.delayed.capacity.availableCash).toBeCloseTo(33600, 8)
+  })
+
+  it('enforces down-payment limits and stops deposits at loan payoff', () => {
+    expect(validateHomebuyer(p, { ...h, liquidFunds: 100001 }, d).some(e => e.path === 'liquidFunds')).toBe(true)
+    expect(validateHomebuyer(p, h, { ...d, rentGrowth: -1 }).some(e => e.path === 'delay.rentGrowth')).toBe(true)
+    const r = evaluateHomebuyer({ ...p, termYears: 1 }, h, delay({ years: 2, rentGrowth: 0 }))
+    expect(r.delayed.savingsContributions).toBeCloseTo(80000 - 500 * 12, 8)
+    expect(r.monthlyTimeline[13].savingsContributions).toBe(r.monthlyTimeline[12].savingsContributions)
+  })
+
+  it('invests 90% of income increases only while waiting and compounds anniversary increments', () => {
+    const home = product({ price: 36000, purchaseCostRate: 0, loanRate: 0, termYears: 3, monthlyRent: 500, appreciation: 0 })
+    const buyer = household({ liquidFunds: 0, annualIncome: 12000 })
+    const assumptions = delay({ years: 1.5, waitingEnabled: true, rentGrowth: .1, incomeGrowth: .1 })
+    const r = evaluateHomebuyer(home, buyer, assumptions)
+    expect(r.monthlyTimeline[12].savingsContributions).toBeCloseTo(6000, 9)
+    expect(r.monthlyTimeline[13].savingsContributions).toBeCloseTo(6540, 9)
+    expect(r.delayed.savingsContributions).toBeCloseTo(9240, 9)
+    expect(r.delayed.capacity.availableCash).toBeCloseTo(9240, 9)
+    expect(r.delayed.annualIncome / 12).toBeCloseTo(1100, 9)
+    const twoYears = evaluateHomebuyer(home, buyer, { ...assumptions, years: 2 })
+    expect(twoYears.delayed.savingsContributions).toBeCloseTo(12480, 9)
+    expect(twoYears.delayed.annualIncome / 12).toBeCloseTo(1210, 9)
+    const disabled = evaluateHomebuyer(home, { ...buyer, annualIncome: NaN }, { ...assumptions, waitingEnabled: false, incomeGrowth: NaN })
+    expect(disabled.delayed).toEqual(disabled.current)
+    expect(disabled.delayed.savingsContributions).toBe(0)
+    expect(disabled.delayed.years).toBe(0)
+  })
+})
 
 describe('India knowledge-card arithmetic', () => {
   it('reproduces the exact 5× income examples and savings comparison', () => {

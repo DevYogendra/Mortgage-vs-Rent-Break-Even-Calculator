@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { requiredIncomeGrowth } from '../src/incomeGrowth'
+import { requiredIncomeGrowth, minimumTakeHome } from '../src/incomeGrowth'
 import type { IncomeGrowthInputs } from '../src/incomeGrowth'
 
 const inputs = (patch: Partial<IncomeGrowthInputs> = {}): IncomeGrowthInputs => ({
   monthlyIncome: 100000, monthlyMortgage: 70000, existingPayments: 10000, paymentShare: .4, years: 5, ...patch,
 })
 describe('Separate required income growth', () => {
+  it('requires enough take-home income for both EMI and a mortgage at most 4× annual income', () => {
+    const emiDominates = minimumTakeHome(12000000, 110000)
+    expect(emiDominates.loanIncome).toBe(250000)
+    expect(emiDominates.emiIncome).toBe(275000)
+    expect(emiDominates.requiredMonthlyIncome).toBe(275000)
+    const loanDominates = minimumTakeHome(12000000, 80000)
+    expect(loanDominates.requiredMonthlyIncome).toBe(250000)
+    expect(loanDominates.requiredMonthlyIncome! * 12 * 4).toBe(12000000)
+    expect(80000 / loanDominates.requiredMonthlyIncome!).toBeLessThanOrEqual(.4)
+    const growth = requiredIncomeGrowth(inputs({ monthlyIncome: 100000, monthlyMortgage: 80000, existingPayments: 0, mortgageAmount: 12000000 }))
+    expect(growth.requiredMonthlyIncome).toBe(250000)
+    expect(growth.annualGrowth).toBeCloseTo(2.5 ** .2 - 1, 12)
+  })
   it('solves the income needed for mortgage and other payments at the selected limit', () => {
     const r = requiredIncomeGrowth(inputs())
     expect(r.requiredMonthlyIncome).toBe(200000)

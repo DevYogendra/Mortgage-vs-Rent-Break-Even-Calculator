@@ -33,6 +33,7 @@ export interface RentOnlyProjection {
   investmentGrowth: number
   portfolio: number
   endingMonthlyRent: number
+  monthlyTimeline: { month: number; portfolio: number; cumulativeInvested: number }[]
 }
 
 export function validateRentOnly(x: RentOnlyInputs): FieldError[] {
@@ -64,6 +65,7 @@ export function evaluateRentOnly(input: RentOnlyInputs): RentOnlyProjection {
   const months = Math.round(x.years * 12)
   const annual: RentOnlyYear[] = []
   let portfolio = x.initialInvestment, totalRent = 0, totalInvested = 0
+  const monthlyTimeline = [{ month: 0, portfolio, cumulativeInvested: 0 }]
   let periodRent = 0, periodInvested = 0, periodMonths = 0, rent = x.monthlyRent
   for (let month = 1; month <= months; month++) {
     rent = x.monthlyRent * (1 + x.rentGrowth) ** Math.floor((month - 1) / 12)
@@ -77,6 +79,7 @@ export function evaluateRentOnly(input: RentOnlyInputs): RentOnlyProjection {
     periodInvested += contribution
     periodMonths++
     if (![portfolio, totalRent, totalInvested].every(Number.isFinite)) throw new Error('Rental projection exceeds the supported numeric range.')
+    monthlyTimeline.push({ month, portfolio, cumulativeInvested: totalInvested })
     if (month % 12 === 0 || month === months) {
       annual.push({ year: Math.ceil(month / 12), months: periodMonths, monthlyRent: rent,
         monthlyMortgage: mortgage, monthlyInvestment: contribution, rentPaid: periodRent,
@@ -86,5 +89,5 @@ export function evaluateRentOnly(input: RentOnlyInputs): RentOnlyProjection {
     }
   }
   return { initialInvestment: x.initialInvestment, mortgagePayment: payment, annual, totalRent, totalInvested,
-    investmentGrowth: portfolio - x.initialInvestment - totalInvested, portfolio, endingMonthlyRent: rent }
+    investmentGrowth: portfolio - x.initialInvestment - totalInvested, portfolio, endingMonthlyRent: rent, monthlyTimeline }
 }

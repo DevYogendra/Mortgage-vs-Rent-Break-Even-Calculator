@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test('theme selection changes appearance without changing calculator inputs or results', async ({ page }) => {
   await page.goto('/india')
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   await page.getByLabel('Waiting period', { exact: true }).fill('5')
   const selector = page.getByRole('combobox', { name: 'Color theme' })
   await selector.selectOption('light')
@@ -17,8 +18,10 @@ test('theme selection changes appearance without changing calculator inputs or r
   expect(await page.getByRole('region', { name: 'Detailed waiting calculation' }).innerText()).toBe(calculations)
   expect(await page.locator('.delay-chart-plot path').first().evaluate(el => getComputedStyle(el).stroke)).not.toBe(lightStroke)
   await page.getByRole('button', { name: 'Reset' }).click()
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   await expect(selector).toHaveValue('dark')
   await page.reload()
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   await expect(selector).toHaveValue('dark')
   await expect(page.getByLabel('Waiting period', { exact: true })).toHaveValue('5')
   for (const route of ['/india/market', '/india/builders', '/']) {
@@ -31,6 +34,7 @@ test('theme selection changes appearance without changing calculator inputs or r
 test('system theme follows device changes while an explicit choice stays fixed', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
   await page.goto('/india')
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   const selector = page.getByRole('combobox', { name: 'Color theme' })
   await expect(selector).toHaveValue('system')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
@@ -52,6 +56,7 @@ test('invalid saved preferences and blocked storage fall back safely', async ({ 
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.addInitScript(() => { try { localStorage.setItem('home-rent-theme', 'invalid') } catch { /* Storage is blocked in the second scenario. */ } })
   await page.goto('/india')
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   await expect(page.getByRole('combobox', { name: 'Color theme' })).toHaveValue('system')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.addInitScript(() => {
@@ -59,10 +64,10 @@ test('invalid saved preferences and blocked storage fall back safely', async ({ 
     Storage.prototype.setItem = () => { throw new Error('Storage blocked') }
   })
   await page.reload()
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   await page.getByRole('combobox', { name: 'Color theme' }).selectOption('light')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-  await page.getByText('Buyer tiers & buying intentions', { exact: true }).click()
-  await expect(page.locator('.compact-tier-status')).toContainText('Tier 2')
+  await expect(page.locator('.compact-mortgage')).toContainText('Mortgage principal₹95,00,000')
   expect(errors).toEqual([])
 })
 
@@ -71,6 +76,7 @@ test('theme selector supports keyboard access and dark layouts fit every route o
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/india')
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   const selector = page.getByRole('combobox', { name: 'Color theme' })
   await selector.focus()
   await selector.press('End')
@@ -87,6 +93,7 @@ test('theme selector supports keyboard access and dark layouts fit every route o
     await page.setViewportSize({ width: 390, height: 844 })
   }
   await page.goto('/india')
+  await page.getByLabel('Include waiting period', { exact: true }).check()
   await page.getByLabel('Waiting period', { exact: true }).fill('5')
   await page.locator('.delay-bar-section').screenshot({ path: 'artifacts/theme-dark-bars-mobile.png', animations: 'disabled' })
   await page.setViewportSize({ width: 320, height: 700 })
