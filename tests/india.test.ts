@@ -196,6 +196,16 @@ describe('Delayed property purchases', () => {
   const p = product({ price: 100000, appreciation: .1, purchaseCostRate: .05, loanRate: 0, termYears: 10, maxLtv: .8 })
   const h = household({ annualIncome: 24000, liquidFunds: 10000, savingsRate: .5 })
 
+  it('supports fixed monthly savings independent of income or income growth', () => {
+    const d = delay({ years: 1.5, monthlySavings: 1000, incomeGrowth: .5 })
+    const a = evaluatePurchaseDelay(p, h, d)
+    const b = evaluatePurchaseDelay(p, { ...h, annualIncome: 0, savingsRate: 0 }, d)
+    expect(a.delayed.savingsContributions).toBe(18000)
+    expect(b.delayed.capacity.availableCash).toBe(a.delayed.capacity.availableCash)
+    expect(validatePurchaseDelay(p, h, delay({ monthlySavings: -1 })).some(e => e.path === 'delay.monthlySavings')).toBe(true)
+    expect(validatePurchaseDelay(p, h, delay({ monthlySavings: NaN })).some(e => e.path === 'delay.monthlySavings')).toBe(true)
+  })
+
   it('zero delay preserves today’s inputs and capacity exactly', () => {
     const result = evaluatePurchaseDelay(p, h, delay())
     expect(result.timeline).toHaveLength(1)

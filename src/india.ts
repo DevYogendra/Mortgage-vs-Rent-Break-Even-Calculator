@@ -72,6 +72,7 @@ export interface PurchaseDelay {
   years: number
   incomeGrowth: number
   savingsReturn: number
+  monthlySavings?: number
 }
 export interface PurchaseDelayPoint {
   years: number
@@ -232,6 +233,7 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
   }
   range(errors, 'delay.incomeGrowth', 'Annual after-tax income growth (%)', delay.incomeGrowth * 100, -99, 100)
   range(errors, 'delay.savingsReturn', 'Annual savings return (%)', delay.savingsReturn * 100, -99, 100)
+  if (delay.monthlySavings !== undefined) range(errors, 'delay.monthlySavings', 'Monthly savings while waiting (₹)', delay.monthlySavings, 0, 1e12)
   if (errors.length) return { errors, projection: null }
 
   const timeline: PurchaseDelayPoint[] = [], monthlyTimeline: PurchaseDelayPoint[] = []
@@ -266,10 +268,11 @@ function purchaseDelayScenario(p: IndiaProduct, h: IndiaHousehold, delay: Purcha
   }
   if (!snapshot(0)) return { errors, projection: null }
   for (let month = 1; month <= months; month++) {
-    // Savings are after rent and living costs. Keep the entered share constant;
-    // income changes on anniversaries, investment growth precedes month-end saving.
+    // Savings are after rent and living costs. The homebuyer page supplies a fixed
+    // monthly amount; legacy share-based callers use anniversary income growth.
+    // Investment growth precedes month-end saving.
     const annualIncome = h.annualIncome * (1 + delay.incomeGrowth) ** Math.floor((month - 1) / 12)
-    const contribution = annualIncome * h.savingsRate / 12
+    const contribution = delay.monthlySavings ?? annualIncome * h.savingsRate / 12
     cash = cash * (1 + monthlyReturn) + contribution
     savingsContributions += contribution
     if (!snapshot(month)) return { errors, projection: null }

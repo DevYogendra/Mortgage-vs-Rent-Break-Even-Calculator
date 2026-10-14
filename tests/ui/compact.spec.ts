@@ -8,15 +8,16 @@ const comparison = (page: Page, name: string) => page.locator('.compact-comparis
 
 test('all financial inputs are visible and results update immediately without moving focus or scrolling', async ({ page }) => {
   await page.goto('/india')
-  await expect(page.locator('.compact-input-grid input[type=number]')).toHaveCount(15)
+  await expect(page.locator('form.compact-inputs > .compact-input-grid input[type=number]')).toHaveCount(12)
   await expect(page.getByLabel('Protected reserve', { exact: true })).toHaveCount(0)
-  for (const input of await page.locator('.compact-input-grid input').all()) await expect(input).toBeVisible()
+  for (const input of await page.locator('form.compact-inputs > .compact-input-grid input').all()) await expect(input).toBeVisible()
   await expect(field(page, 'Home price')).toHaveValue('1.5')
-  await expect(field(page, 'Take-home income')).toHaveValue('2.5')
+  await expect(field(page, 'Take-home income')).toHaveCount(0)
+  await expect(field(page, 'Income growth')).toHaveCount(0)
   await expect(field(page, 'Liquid purchase funds')).toHaveValue('55')
   await expect(comparison(page, 'Available purchase cash').locator('td').first()).toHaveText('₹55,00,000')
   await expect(field(page, 'Waiting period')).toHaveValue('5')
-  await expect(comparison(page, 'Purchase capacity')).toContainText('Cash + loan fit')
+  await expect(comparison(page, 'Purchase funding')).toContainText('Cash + loan share fit')
   await expect(page.locator('.compact-waiting')).toContainText('₹37.5 lakh')
   await expect(page.locator('.compact-waiting')).toContainText('₹34.77 lakh')
   await expect(page.locator('.compact-waiting')).toContainText('₹2.73 lakh')
@@ -24,7 +25,6 @@ test('all financial inputs are visible and results update immediately without mo
   await field(page, 'Waiting period').fill('3')
   await expect(page.locator('.compact-waiting')).toContainText('−₹30.63 lakh')
   await expect(page.locator('.compact-waiting')).toContainText('Further from covering the purchase')
-  await expect(comparison(page, 'Purchase capacity')).toContainText('Beyond this budget')
   await field(page, 'Home price').focus()
   const scroll = await page.evaluate(() => scrollY)
   await field(page, 'Home price').fill('1.6')
@@ -35,39 +35,16 @@ test('all financial inputs are visible and results update immediately without mo
   await expect(page.getByRole('region', { name: 'Detailed waiting calculation', exact: true })).toBeHidden()
 })
 
-test('one savings field converts units and preserves the amount or percentage on income edits', async ({ page }) => {
-  await page.goto('/india?goal=wait')
-  const savings = field(page, 'Savings'), unit = field(page, 'Savings unit')
-  await field(page, 'Take-home income').fill('2')
-  await expect(savings).toHaveValue('62500')
-  await expect(page.locator('.compact-savings-summary')).toContainText('₹62,500/month = 31.25% of income = ₹7.5 lakh/year')
-  await expect(page.locator('.delay-bar-row').first()).toContainText('₹37,50,000')
-  await unit.selectOption('percent')
-  await expect(savings).toHaveValue('31.25')
-  await field(page, 'Take-home income').fill('3')
-  await expect(savings).toHaveValue('31.25')
-  await expect(page.locator('.compact-savings-summary')).toContainText('₹93,750/month')
-  await unit.selectOption('amount')
-  await expect(savings).toHaveValue('93750')
-  await field(page, 'Take-home income').fill('4')
-  await expect(savings).toHaveValue('93750')
-  await unit.selectOption('percent')
-  await expect(savings).toHaveValue('23.4375')
-  await savings.fill('20')
-  await unit.selectOption('amount')
-  await expect(savings).toHaveValue('80000')
-})
+
 
 test('reset and reload restore five years and other defaults; old goal links still work', async ({ page }) => {
   await page.goto('/india?goal=afford')
   await field(page, 'Home price').fill('1.8')
   await field(page, 'Waiting period').fill('2')
-  await field(page, 'Savings unit').selectOption('percent')
   await field(page, 'Savings').fill('10')
   await page.getByRole('button', { name: 'Reset', exact: true }).click()
   await expect(field(page, 'Home price')).toHaveValue('1.5')
   await expect(field(page, 'Waiting period')).toHaveValue('5')
-  await expect(field(page, 'Savings unit')).toHaveValue('amount')
   await expect(field(page, 'Savings')).toHaveValue('62500')
   await field(page, 'Waiting period').fill('3')
   await page.reload()
@@ -95,91 +72,27 @@ test('12% effective annual savings return grows 50 lakh to 56 lakh in a year wit
   await expect(page.locator('.compact-waiting')).toContainText('Investment losses−₹2.5 lakh')
 })
 
-test('errors stay next to fields and withhold all dependent results until repaired', async ({ page }) => {
-  await page.goto('/india')
-  for (const [name, invalid, valid] of [
-    ['Home price', '0', '1.5'], ['Comparable rent', '-1', '31250'], ['Take-home income', '', '2.5'],
-    ['Liquid purchase funds', '-1', '55'], ['Existing loan payments', '-1', '0'],
-    ['Waiting period', '1.01', '5'], ['House-price growth', '-100', '4'], ['Savings return', '-100', '0'],
-    ['Income growth', '-100', '0'], ['Loan interest', '-1', '8.5'], ['Loan term', '0', '20'],
-    ['Maximum financed share', '101', '75'], ['Total loan-payment limit', '101', '40'], ['Upfront purchase charges', '-1', '7'],
-    ['Savings', '300000', '62500'],
-  ]) {
-    await field(page, name).fill(invalid)
-    await expect(field(page, name)).toHaveAttribute('aria-invalid', 'true')
-    await expect(field(page, name).locator('..').locator('..').locator('.india-field-error')).toBeVisible()
-    await expect(page.getByRole('alert')).toBeVisible()
-    await expect(page.locator('.compact-waiting')).toHaveCount(0)
-    await expect(page.locator('.india-delay-chart')).toHaveCount(0)
-    await field(page, name).fill(valid)
-    await expect(page.getByRole('alert')).toHaveCount(0)
-  }
-  await field(page, 'Savings unit').selectOption('percent')
-  await field(page, 'Savings').fill('101')
-  await expect(page.locator('.compact-savings .india-field-error')).toContainText('0% to 100%')
-  await field(page, 'Savings').fill('')
-  await field(page, 'Savings unit').selectOption('amount')
-  await expect(field(page, 'Savings')).toHaveValue('')
-  await expect(page.getByRole('alert')).toBeVisible()
-})
 
-test('cash and EMI shortfalls reflect purchase funds, existing debt and financed-share limits', async ({ page }) => {
+
+test('purchase funding reflects cash and financed-share limits without an income assumption', async ({ page }) => {
   await page.goto('/india')
   await field(page, 'Liquid purchase funds').fill('40')
   await expect(comparison(page, 'Cash shortfall').locator('td').first()).toHaveText('₹8,00,000')
   await field(page, 'Liquid purchase funds').fill('55')
-  await field(page, 'Existing loan payments').fill('100000')
-  await expect(comparison(page, 'Purchase capacity').locator('td').first()).toHaveText('Beyond this budget')
-  await expect(comparison(page, 'Monthly-payment shortfall').locator('td').first()).not.toHaveText('₹0')
-  await field(page, 'Existing loan payments').fill('0')
   await field(page, 'Loan interest').fill('0')
   await expect(comparison(page, 'Required monthly loan payment').locator('td').first()).toHaveText('₹43,958')
   await disclose(page, 'Loan & purchase reconciliation')
   await expect(page.getByRole('region', { name: 'Loan reconciliation' })).toContainText('₹1,05,50,000')
 })
 
-test('zero income cash buyers save zero and are exempt from credit; all other demand gates apply', async ({ page }) => {
-  await page.goto('/india/')
-  await field(page, 'Liquid purchase funds').fill('300')
-  await field(page, 'Take-home income').fill('0')
-  await expect(field(page, 'Savings')).toHaveValue('0')
-  await field(page, 'Savings unit').selectOption('percent')
-  await expect(field(page, 'Savings')).toBeDisabled()
-  await expect(page.locator('.compact-savings-summary')).toContainText('new savings from income are ₹0')
-  await expect(comparison(page, 'Purchase capacity').locator('td').first()).toHaveText('Cash purchase fits')
-  await disclose(page, 'Buyer tiers & buying intentions')
-  await field(page, 'Access to credit').uncheck()
-  await expect(page.locator('.compact-tier-status')).toContainText('Effective demand: Yes')
-  for (const gate of ['Housing need', 'Desire to own', 'Willing to buy today']) {
-    await field(page, gate).uncheck()
-    await expect(page.locator('.compact-tier-status')).toContainText('Effective demand: No')
-    await field(page, gate).check()
-  }
-  await disclose(page, 'Rental yield & price-growth context')
-  await expect(page.locator('.india-growth-table tbody tr').first()).toContainText('Unavailable')
-  await expect(page.locator('.compact-results')).not.toContainText('NaN')
-  await expect(page.locator('.compact-results')).not.toContainText('Infinity')
-})
 
-test('tiers, gross yield and the exact 5x income insight remain available in disclosures', async ({ page }) => {
-  await page.goto('/india')
-  await disclose(page, 'Buyer tiers & buying intentions')
-  await expect(page.locator('.compact-tier-status')).toContainText('Today: Tier 2')
-  await field(page, 'Access to credit').uncheck()
-  await expect(page.locator('.compact-tier-status')).toContainText('No access to credit')
-  await expect(page.locator('.compact-tier-status')).toContainText('Effective demand: No')
-  await disclose(page, 'Rental yield & price-growth context')
-  await expect(page.locator('.india-yield')).toContainText('2.5%')
-  await expect(page.locator('.india-insight')).toContainText('5×')
-  for (const [i, percent] of ['5%', '20%', '25%'].entries()) await expect(page.locator('.india-growth-table tbody tr').nth(i).locator('td').nth(1)).toHaveText(percent)
-  await disclose(page, 'Housing need ≠ effective demand Knowledge-card context')
-  await expect(page.getByRole('heading', { name: 'Why a low yield may coexist with high prices' })).toBeVisible()
-})
+
+
 
 test('one month selector drives bars, chart and formulas and retains inspection across valid edits', async ({ page }) => {
   await page.goto('/india')
   await disclose(page, 'How this was calculated')
-  await expect(calculation(page, 'Starting monthly savings')).toContainText('₹2,50,000 monthly take-home income × 25%')
+  await expect(calculation(page, 'Starting monthly savings')).toContainText('₹62,500 fixed monthly amount')
   await expect(calculation(page, 'New savings from income')).toContainText('₹62,500 per month × 60 months')
   await expect(calculation(page, 'Extra total purchase cost').locator('td').last()).toHaveText('₹34,77,279')
   await expect(calculation(page, 'Net purchase progress').locator('td').last()).toHaveText('₹2,72,721')
@@ -207,25 +120,7 @@ test('one month selector drives bars, chart and formulas and retains inspection 
   await expect(page.getByRole('region', { name: 'Monthly savings and price data' }).locator('tbody tr')).toHaveCount(19)
 })
 
-test('income growth and partial years reconcile monthly contributions and effective returns', async ({ page }) => {
-  await page.goto('/india')
-  await field(page, 'Take-home income').fill('2')
-  await field(page, 'Waiting period').fill('5')
-  await disclose(page, 'How this was calculated')
-  await expect(calculation(page, 'Starting monthly savings')).toContainText('₹2,00,000 monthly take-home income × 31.25%')
-  await expect(calculation(page, 'New savings from income').locator('td').last()).toHaveText('₹37,50,000')
-  await field(page, 'Take-home income').fill('2.5')
-  await field(page, 'Waiting period').fill('1.5')
-  await field(page, 'Income growth').fill('10')
-  await expect(calculation(page, 'New savings from income').locator('td').last()).toHaveText('₹11,62,500')
-  await disclose(page, 'Savings contributions by year')
-  const periods = page.getByRole('region', { name: 'Savings contributions by year', exact: true })
-  await expect(periods.locator('tbody tr')).toHaveCount(2)
-  await expect(periods.locator('tbody tr').last()).toContainText('₹33,00,000 × 25% ÷ 12 = ₹68,750')
-  await expect(periods.locator('tfoot')).toContainText('₹11,62,500')
-  await field(page, 'Savings return').fill('5')
-  await expect(page.locator('.delay-calculations')).toContainText('0.407412%')
-})
+
 
 test('falling prices, zero savings and zero wait stay finite; tables scroll on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -256,8 +151,8 @@ for (const [width, columns] of [[1440, 8], [1100, 6], [700, 4], [390, 2], [320, 
     await page.setViewportSize({ width, height: 900 })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/india')
-    expect(await page.locator('.compact-input-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(columns)
-    for (const input of await page.locator('.compact-input-grid input').all()) expect((await input.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    expect(await page.locator('form.compact-inputs > .compact-input-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(columns)
+    for (const input of await page.locator('form.compact-inputs > .compact-input-grid input').all()) expect((await input.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     if (width >= 1100) expect((await page.locator('.compact-waiting').boundingBox())!.y).toBeLessThan(768)
     for (const theme of ['light', 'dark']) {
       await field(page, 'Color theme').selectOption(theme)

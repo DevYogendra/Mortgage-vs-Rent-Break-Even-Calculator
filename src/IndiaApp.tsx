@@ -5,7 +5,7 @@ import {
   indiaSegmentDefaults, priceCapacityCurve, purchaseDelayDefaults, validateProduct, validatePurchaseDelay, validateSegments,
 } from './india'
 import type {
-  DemandResult, Exclusion, FieldError, HouseholdCapacity, HouseholdSegment,
+  DemandResult, Exclusion, FieldError, HouseholdSegment,
   IndiaHousehold, IndiaProduct, PriceCapacityPoint, PurchaseDelay,
 } from './india'
 import './App.css'
@@ -56,16 +56,6 @@ function Gates({ household, onChange, suffix = '' }: { household: IndiaHousehold
 }
 function Metric({ label, value, note }: { label: string; value: ReactNode; note?: string }) {
   return <div className="india-metric"><dt>{label}</dt><dd>{value}</dd>{note && <small>{note}</small>}</div>
-}
-function BuyerContext({ product, household, capacity: c }: { product: IndiaProduct; household: IndiaHousehold; capacity: HouseholdCapacity }) {
-  return <>
-    <p className="india-note">Financial tiers describe capacity under these financing assumptions. Tier 1 can pay in cash; Tier 2 needs borrowing and meets the cash and EMI limits; Tier 3 cannot meet those limits. Recurring ownership costs are outside this check.</p>
-    <section className="india-growth"><h3>The income cost of rising prices</h3>
-      <p className="india-insight">{c.incomeMultiple === null ? 'Income ratios are unavailable with zero income.' : <>This home costs <strong>{number(c.incomeMultiple)}×</strong> your annual after-tax income.</>}</p>
-      <div className="table-scroll" role="region" aria-label="Appreciation burden comparison" tabIndex={0}><table className="india-growth-table"><caption>One-year price increases at today’s price</caption><thead><tr><th scope="col">Price rise</th><th scope="col">Extra price</th><th scope="col">Annual income</th><th scope="col">Annual savings</th></tr></thead><tbody>{[.01, .04, .05].map(rate => <tr key={rate}><th scope="row">{pct(rate)}</th><td>{money(product.price * rate)}</td><td>{pct(household.annualIncome > 0 ? product.price * rate / household.annualIncome : null)}</td><td>{pct(c.annualSavings > 0 ? product.price * rate / c.annualSavings : null)}</td></tr>)}</tbody></table></div>
-      <p className="india-note">A price increase raises the complete purchase amount; it is not all an upfront cash requirement. Financing determines the cash and monthly-payment effects.</p>
-    </section><YieldInsight product={product} />
-  </>
 }
 function YieldInsight({ product }: { product: IndiaProduct }) {
   return <section className="india-yield"><div><p className="eyebrow">GROSS RENTAL YIELD</p><strong>{pct(12 * product.monthlyRent / product.price)}</strong></div><p>Annual comparable rent ÷ property price. A low yield can make renting attractive, but this ratio alone does not establish whether buying or renting builds more wealth.</p></section>
@@ -138,7 +128,7 @@ function KnowledgeNotes() {
 export default function IndiaApp({ page }: { page: IndiaPage }) {
   const [product, setProduct] = useState<IndiaProduct>(() => structuredClone(indiaProductDefaults))
   const [household, setHousehold] = useState<IndiaHousehold>(() => structuredClone(indiaHouseholdDefaults))
-  const [delay, setDelay] = useState<PurchaseDelay>(() => ({ ...purchaseDelayDefaults, years: 5 }))
+  const [delay, setDelay] = useState<PurchaseDelay>(() => ({ ...purchaseDelayDefaults, years: 5, monthlySavings: 62500 }))
   const [guideVersion, setGuideVersion] = useState(0)
   const [segments, setSegments] = useState<HouseholdSegment[]>(() => structuredClone(indiaSegmentDefaults))
   const info = pageInfo[page]
@@ -148,21 +138,20 @@ export default function IndiaApp({ page }: { page: IndiaPage }) {
   }, [info])
   const errors = page === 'buyer' ? validatePurchaseDelay(product, household, delay) : [...validateProduct(product), ...validateSegments(segments)]
   const projection = !errors.length && page === 'buyer' ? evaluatePurchaseDelay(product, household, delay) : null
-  const capacity = projection?.current.capacity
   const demand = !errors.length && page !== 'buyer' ? evaluateDemand(product, segments) : null
   const points = demand && page === 'market' ? priceCapacityCurve(product, segments) : null
   const editor = <SegmentEditor key={guideVersion} segments={segments} setSegments={setSegments} errors={errors} />
   function reset() {
     setProduct(structuredClone(indiaProductDefaults)); setHousehold(structuredClone(indiaHouseholdDefaults)); setSegments(structuredClone(indiaSegmentDefaults))
-    setDelay({ ...purchaseDelayDefaults, years: 5 })
+    setDelay({ ...purchaseDelayDefaults, years: 5, monthlySavings: 62500 })
     setGuideVersion(v => v + 1)
   }
   return <div className={`india-app${page === 'buyer' ? ' india-homebuyer' : ' india-business'}`}><header className="site-header india-header"><a href="/" className="brand">Home<span className="brand-light"> / </span>Rent</a><span className="header-description">India · Effective demand</span><a className="india-us-link" href="/">US calculator ↗</a><ThemeSelector /></header>
     <nav className="india-nav" aria-label="India calculators">{(Object.keys(pageInfo) as IndiaPage[]).map(key => <a key={key} href={pageInfo[key].href} aria-current={key === page ? 'page' : undefined}>{pageInfo[key].title}</a>)}</nav>
-    <main id="main"><div className="page-intro"><div><p className="eyebrow">INDIA / HOUSING NEED ≠ EFFECTIVE DEMAND</p><h1>{info.title}</h1><p>{page === 'buyer' ? 'Enter your finances to compare buying today with waiting.' : info.description}</p></div><span className="currency-label">INR · Household capacity</span></div>
+    <main id="main"><div className="page-intro"><div><p className="eyebrow">INDIA / HOUSING NEED ≠ EFFECTIVE DEMAND</p><h1>{info.title}</h1><p>{page === 'buyer' ? 'Enter your finances to explore buying today, waiting to buy, or continuing to rent.' : info.description}</p></div><span className="currency-label">INR · Household capacity</span></div>
       <div className="india-example-note"><span>Illustrative examples · all assumptions are editable</span><span>Calculated in your browser</span></div>
       {page === 'buyer' ? <CompactBuyer key={guideVersion} product={product} setProduct={setProduct} household={household} setHousehold={setHousehold} delay={delay} setDelay={setDelay} errors={errors} projection={projection} reset={reset}
-        gates={<Gates household={household} onChange={setHousehold} />} context={capacity ? <BuyerContext product={product} household={household} capacity={capacity} /> : null} /> : <>
+        context={<YieldInsight product={product} />} /> : <>
         <form className="compact-inputs" onSubmit={e => e.preventDefault()} aria-label="Property and financing inputs"><div className="compact-panel-heading"><h2>Property & financing</h2><div><button type="button" className="text-button" onClick={reset}>Reset examples</button><a href="#market-results">Results ↓</a></div></div>
           <ProductInputs product={product} setProduct={setProduct} errors={errors} />
           {page === 'builders' ? editor : <details className="compact-help"><summary>Edit household segments</summary>{editor}</details>}
