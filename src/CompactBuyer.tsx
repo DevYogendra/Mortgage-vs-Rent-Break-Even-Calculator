@@ -57,6 +57,8 @@ export default function CompactBuyer({ product, setProduct, household, setHouseh
     termYears: product.termYears, investmentReturn: delay.savingsReturn, initialInvestment: household.liquidFunds + upfront }
   const rentErrors = validateRentOnly(rentalInputs)
   const rental = !rentErrors.length && !errors.some(e => !['annualIncome', 'delay.incomeGrowth'].includes(e.path)) ? evaluateRentOnly(rentalInputs) : null
+  const loanTermInputs = { ...rentalInputs, years: product.termYears }
+  const loanTermRental = !validateRentOnly(loanTermInputs).length && !errors.some(e => !['annualIncome', 'delay.incomeGrowth', 'delay.years', 'appreciation'].includes(e.path)) ? evaluateRentOnly(loanTermInputs) : null
   const extraCost = now && later ? later.capacity.totalPurchaseCost - now.capacity.totalPurchaseCost : 0
   const progress = now && later ? later.capacity.availableCash - now.capacity.availableCash - extraCost : 0
   const rows: { label: string; value: (c: HouseholdCapacity) => ReactNode }[] = [
@@ -114,6 +116,7 @@ export default function CompactBuyer({ product, setProduct, household, setHouseh
         </section>
       </>}
       {rental && <RentOnlyResults projection={rental} years={delay.years} rentGrowth={rentGrowth} investmentReturn={delay.savingsReturn} termYears={product.termYears} />}
+      {loanTermRental && <RentOnlyResults projection={loanTermRental} years={product.termYears} rentGrowth={rentGrowth} investmentReturn={delay.savingsReturn} termYears={product.termYears} fullLoanTerm />}
       {waitingEnabled && projection && now && later && <>
         <section className="compact-waiting" aria-labelledby="waiting-summary-heading" aria-live="polite" aria-atomic="true">
           <div className="section-label"><h2 id="waiting-summary-heading">{delay.years > 0 ? `After waiting ${number(delay.years)} ${delay.years === 1 ? 'year' : 'years'}` : 'Buying today'}</h2><span>Illustrative scenario · nominal INR</span></div>

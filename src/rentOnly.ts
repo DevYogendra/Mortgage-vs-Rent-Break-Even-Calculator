@@ -43,7 +43,7 @@ export function validateRentOnly(x: RentOnlyInputs): FieldError[] {
   }
   range('monthlyRent', 'Monthly rent (₹)', x.monthlyRent, 0, 1e12)
   range('rentGrowth', 'Annual rent increase (%)', x.rentGrowth * 100, -99, 100)
-  range('delay.years', 'Rental period (years)', x.years, 0, 30)
+  range('delay.years', 'Rental period (years)', x.years, 0, 50)
   range('loanAmount', 'Reference home loan (₹)', x.loanAmount, 0, 2e12)
   range('liquidFunds', 'Starting investment (₹)', x.initialInvestment, 0, 1e12)
   range('loanRate', 'Loan interest (%)', x.loanRate * 100, 0, 100)

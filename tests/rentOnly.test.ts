@@ -88,9 +88,20 @@ describe('Rent only, investing the mortgage–rent difference', () => {
     for (const a of r.annual) expect(a.portfolio).toBeCloseTo(r.initialInvestment + a.cumulativeInvested + a.investmentGrowth, 5)
   })
 
+  it('supports the full 50-year loan-term boundary and its last monthly deposit', () => {
+    const r = evaluateRentOnly(inputs({ years: 50, termYears: 50, loanAmount: 600000, monthlyRent: 500, rentGrowth: 0, initialInvestment: 20000 }))
+    expect(r.annual).toHaveLength(50)
+    expect(r.monthlyTimeline).toHaveLength(601)
+    expect(r.mortgagePayment).toBe(1000)
+    expect(r.totalRent).toBe(300000)
+    expect(r.totalInvested).toBe(300000)
+    expect(r.portfolio).toBe(320000)
+    expect(r.investmentGrowth).toBe(0)
+  })
+
   it.each([
     { rentGrowth: NaN }, { rentGrowth: -1 }, { rentGrowth: 1.01 },
-    { years: 1.01 }, { years: 31 }, { monthlyRent: -1 }, { loanAmount: -1 },
+    { years: 1.01 }, { years: 51 }, { monthlyRent: -1 }, { loanAmount: -1 },
     { termYears: 0 }, { termYears: 1.01 }, { loanRate: Infinity }, { investmentReturn: -1 }, { initialInvestment: -1 }, { initialInvestment: NaN },
   ])('rejects invalid rental assumptions: %s', patch => {
     expect(validateRentOnly(inputs(patch)).length).toBeGreaterThan(0)

@@ -311,6 +311,7 @@ function homebuyerScenario(p: IndiaProduct, h: IndiaHousehold, delay: PurchaseDe
   const waitingEnabled = delay.waitingEnabled ?? true
   const effectiveHousehold = waitingEnabled ? h : { ...h, annualIncome: 0, savingsRate: 0, existingEmi: 0 }
   const errors = [...validateProduct(p), ...validateHousehold(effectiveHousehold).map(e => e.path === 'liquidFunds' ? { ...e, message: e.message.replace('Liquid purchase funds', 'Down payment') } : e)]
+  range(errors, 'delay.years', 'Comparison period (years)', delay.years, 0, 30)
   if (waitingEnabled) range(errors, 'delay.incomeGrowth', 'Annual increment (%)', delay.incomeGrowth * 100, 0, 100)
   if (Number.isFinite(h.liquidFunds) && h.liquidFunds > p.price) errors.push({ path: 'liquidFunds', message: 'Down payment cannot exceed the home price.' })
   const initialCash = h.liquidFunds + purchaseCharges(p)
